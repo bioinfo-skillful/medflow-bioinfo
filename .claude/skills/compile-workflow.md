@@ -26,7 +26,7 @@ Read the protocol `.md` file. Extract:
 
 ### 2. Discover Available Nodes
 
-First, read `nodes/manifest.yaml` for the index of available nodes, their git URLs, capabilities, and file layout conventions. This is the **only** source of node metadata.
+First, read `manifest.yaml` for the index of available nodes, their git URLs, capabilities, and file layout conventions. This is the **only** source of node metadata.
 
 **If `nodes/` is empty:** clone each node from its manifest URL:
 ```bash
