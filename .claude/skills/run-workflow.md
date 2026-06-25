@@ -7,7 +7,7 @@ tags: [workflow, run, execute]
 
 Execute a workflow from a workflow.json file.
 
-**Input**: `workflows/<name>.json` with optional `--live` flag for real conda execution (default is dry-run: validate only, no node dispatch).
+**Input**: `workflows/<name>.json`. Default is real conda execution. Use `--stub` for dry-run (validate only, no dispatch).
 
 ## Steps
 
@@ -50,18 +50,18 @@ From the DAG edges, determine execution order (topological sort):
 - Nodes run when all upstreams complete
 - Parallel branches run concurrently where possible
 
-### 4. Execute (Dry Run)
+### 4. Execute (Stub)
 
-If `--live` not set:
+If `--stub` is set:
 - Validate all nodes resolved
 - Validate all required config params present
 - Validate edges form a valid DAG (no cycles)
 - Print execution plan: what runs in what order with what args
-- Report: "Dry run complete. N steps validated. Ready for --live."
+- Report: "Stub run complete. N steps validated. Ready for live execution."
 
-### 5. Execute (Live)
+### 5. Execute
 
-If `--live` is set:
+Default mode — real conda execution:
 
 For each step in topological order, you MUST generate and complete a pre-flight checklist BEFORE dispatching the node. You MUST NOT proceed to the next checklist item until the current one is confirmed.
 
