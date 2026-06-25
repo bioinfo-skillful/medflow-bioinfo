@@ -81,7 +81,20 @@ For each step, map the protocol's research question and config section to node p
 - Open a sample input file and check: integer counts? log2 values? normalized?
 - Set `--method` accordingly, overriding defaults if needed
 
-### 6. Validate Data Flow
+### 6. Validate Config Against Node Parameters
+
+After assigning config to steps, verify each key against the target node's declared parameters (from SKILL.md):
+
+1. For each config key on a step, check: does the node have a parameter with this name?
+   - `group_col` → `--group-col` → does node's `parameters[]` contain this?
+2. **If a key matches no parameter on the target node:** search other steps in the pipeline.
+   - Does the key belong on a different node? (e.g., `group_col` → merge node accepts `--group-col`, deg node doesn't)
+   - **Reassign** the config to the node that accepts it, and remove from the original step.
+3. **If no node in the pipeline accepts the key:** flag as a config warning in `data_flow_warnings`.
+   - The protocol author may have specified a config that no available node supports.
+4. **If a required parameter has no config value:** check the node's `default` field. If no default, flag as an error — the run will fail.
+
+### 7. Validate Data Flow
 
 For each edge `A → B`:
 - Read upstream node's outputs (from SKILL.md)
@@ -92,7 +105,7 @@ For each edge `A → B`:
   - Check if the upstream node can produce the missing output (conditional on a flag?)
   - Suggest config changes to enable the missing output
 
-### 7. Generate workflow.json
+### 8. Generate workflow.json
 
 The workflow.json must be **execution-ready** — the run agent should be able to dispatch every step without reading node code.
 
@@ -188,7 +201,7 @@ Write to `workflows/<name>.json`:
 }
 ```
 
-### 8. Report
+### 9. Report
 
 - Workflow name, step count, edge count
 - Node assignments per step with versions
