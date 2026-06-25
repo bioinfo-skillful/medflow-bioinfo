@@ -26,15 +26,16 @@ Read the protocol `.md` file. Extract:
 
 ### 2. Discover Available Nodes
 
-First, read `manifest.yaml` for the index of available nodes, their git URLs, capabilities, and file layout conventions. This is the **only** source of node metadata.
+First, read `registry.yaml` for git URLs and pinned commits — this is how nodes are fetched.
+Then read `manifest.yaml` for semantic metadata — subcommands, produces/consumes, file_layout conventions.
 
-**If `nodes/` is empty:** clone each node from its manifest URL:
+**If `nodes/` is empty:** clone each node from its `registry.yaml` URL:
 ```bash
 git clone <url> nodes/<name>@<version>
 cd nodes/<name>@<version> && git checkout <commit> && cd ../../..
 ```
 **Never search, read, copy, or reference any directory outside this sandbox.**
-`git clone` from manifest URLs is the only allowed method to obtain nodes.
+`git clone` from registry URLs is the only allowed method to obtain nodes.
 
 For each node, read:
 - `SKILL.md` frontmatter: `name`, `type`, `inputs`/`outputs` (semantic_type, format), `parameters` (bind, type, required, default), `entry_point`, `file_layout`, `file_discovery`

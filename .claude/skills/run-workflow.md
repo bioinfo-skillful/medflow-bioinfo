@@ -23,9 +23,10 @@ Read `workflow.json`. Validate structure: steps, edges, each step has `id`, `nod
 
 For each step:
 1. Parse `node` field: `<name>@<version>` or just `<name>` (use latest version)
-2. Read `manifest.yaml` — this is the **only** source of node metadata
-3. Check `nodes/<name>@<version>/` exists — if yes, use it directly
-4. **If the node is missing, fetch it from its git repository using the manifest URL:**
+2. Read `registry.yaml` for git URLs and pinned commits — use this to clone nodes
+3. Read `manifest.yaml` for semantic metadata — subcommands, produces/consumes, file_layout
+4. Check `nodes/<name>@<version>/` exists — if yes, use it directly
+5. **If the node is missing, fetch from git using `registry.yaml`:**
    ```bash
    git clone <url> nodes/<name>@<version>
    cd nodes/<name>@<version> && git checkout <commit> && cd ../../..
