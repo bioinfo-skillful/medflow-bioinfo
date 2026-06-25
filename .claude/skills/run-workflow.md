@@ -159,20 +159,28 @@ conda run -p runs/<workflow>/envs/<step-id> --cwd <node-dir> \
 If `file_bindings` for this step contains `extract_group_col` or `transform` directives:
 1. Read the source file identified in the binding
 2. Execute the transformation inline — write a minimal script, not a new node:
-   - `extract_group_col: "er_status"` → extract `sample_id` + `er_status` columns into a two-column CSV:
+   - **Single column:** `extract_group_col: "er_status"` → extract `sample_id` + group column:
      ```python
      import csv
      with open("merged_metadata.csv") as inf, open("sample_group_map.csv", "w") as outf:
          r = csv.DictReader(inf); w = csv.writer(outf)
          w.writerow(["sample_id", "group"])
-         # Find the sample ID column and group column
          for row in r: w.writerow([row["geo_accession"], row["er_status"]])
      ```
+   - **Coalesce with fallback chain (deterministic — compiled by compile-workflow):**
+     ```json
+     "extract_group_col": {
+       "unified_name": "er_status",
+       "sources": {"er_status": ["P","N"], "er_status_ihc:ch1": ["P","N"]},
+       "fallback_chain": ["er_status", "er_status_ihc:ch1"]
+     }
+     ```
+     → Try each column in `fallback_chain` order. For each row, use the first column that has a valid value (in `sources[column]` allowlist). Filter to rows with valid groups. Report unified counts.
    - `transform: "transpose"` → transpose matrix
    - `transform: "merge_columns"` → combine multiple columns
 3. Write the output file to the current step's outdir
 4. Bind the transformed file to the downstream parameter
-5. Report: "Inline transform: merged_metadata.csv[er_status] → sample_group_map.csv (P=342, N=166)"
+5. Report: "Inline transform: coalesced er_status + er_status_ihc:ch1 → sample_group_map.csv (P=461, N=319)"
 
 **Wire data to downstream:**
 - Check `file_bindings` in workflow.json first — if present, use the declared source_step, prefer, and transform directives

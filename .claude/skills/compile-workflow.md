@@ -94,6 +94,43 @@ After assigning config to steps, verify each key against the target node's decla
    - The protocol author may have specified a config that no available node supports.
 4. **If a required parameter has no config value:** check the node's `default` field. If no default, flag as an error — the run will fail.
 
+### 6a. Validate Group Column Coverage
+
+When a research question specifies a group column (e.g., `group_col: er_status`), verify it exists across ALL upstream datasets. A column that only exists in one dataset will silently reduce sample counts and produce inconsistent results.
+
+**For each upstream dataset (fetch step):**
+
+1. Open the metadata CSV and list all column names
+2. Check if the specified group column exists:
+   - If present: count non-NA P/N values → record coverage
+   - If absent: search for equivalent columns
+
+**Finding equivalent columns (when the specified column is missing):**
+- Search columns whose non-NA values match the same pattern: same set of distinct values (e.g., `{P, N, I}`)
+- Search columns whose name shares a common substring with the specified column (e.g., `er_status` in `er_status_ihc`)
+- Score candidates by: value match (exact = high) + name similarity + non-NA count
+- The best candidate is the equivalent column for that dataset
+
+**If equivalent column found in some datasets:**
+- Flag as data flow warning: `"Column 'er_status' exists in GSE20194 (278 samples) but not GSE25066. GSE25066 has 'er_status_ihc:ch1' (502 samples, values={P,N}). Columns represent the same biology — coalescing into unified 'er_status'."`
+- Embed deterministic coalesce logic in `file_bindings` so the run agent doesn't guess:
+  ```json
+  "extract_group_col": {
+    "unified_name": "er_status",
+    "sources": {
+      "er_status": ["P", "N"],
+      "er_status_ihc:ch1": ["P", "N"]
+    },
+    "fallback_chain": ["er_status", "er_status_ihc:ch1"]
+  }
+  ```
+
+**If no equivalent column found AND coverage < 50% of samples:**
+- Escalate as error: `"Group column 'er_status' only covers 278/786 samples (35%). No equivalent column found in GSE25066. Cannot proceed — check protocol config."`
+
+**If the group column exists in all datasets with full coverage:**
+- No warning, proceed normally
+
 ### 7. Validate Data Flow
 
 For each edge `A → B`:
