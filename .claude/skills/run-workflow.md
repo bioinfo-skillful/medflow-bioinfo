@@ -23,14 +23,14 @@ Read `workflow.json`. Validate structure: steps, edges, each step has `id`, `nod
 
 For each step:
 1. Parse `node` field: `<name>@<version>` or just `<name>` (use latest version)
-2. Read `registry.yaml` for git URLs and pinned commits — use this to clone nodes
+2. Read `registry.yaml` for git URLs — use this to clone nodes
 3. Read `manifest.yaml` for semantic metadata — subcommands, produces/consumes, file_layout
-4. Check `nodes/<name>@<version>/` exists — if yes, use it directly
-5. **If the node is missing, fetch from git using `registry.yaml`:**
+4. **Always clone fresh from `registry.yaml`:**
    ```bash
+   rm -rf nodes/<name>@<version>
    git clone <url> nodes/<name>@<version>
-   cd nodes/<name>@<version> && git checkout <commit> && cd ../../..
    ```
+   Clone every node, every run. Never reuse cached copies from previous runs.
    This is the **only** allowed method to obtain nodes.
 5. **CRITICAL: Sandbox integrity rules**
    - **Never reference, search, read, copy, rsync, or symlink from any directory outside this sandbox.** This includes `/work/run/projects/bio-13/test/IRE_product`, `../nodes`, `~/projects`, or any other path.

@@ -1,7 +1,8 @@
 schema: registry@1.0
 
-# Machine-readable node registry — pinned commits for reproducible execution.
-# Used by `ire sync` and the run-workflow skill for git clone + checkout.
+# Machine-readable node registry — git clone URLs + versions.
+# Used by `ire sync` and the run-workflow skill for git clone.
+# Commit pinning removed — agents clone the latest main branch.
 # See manifest.yaml for agent-oriented semantic metadata.
 
 nodes:
@@ -10,29 +11,21 @@ nodes:
     url: https://github.com/bobo-xxx/medflow-geo-microarray.git
     versions:
       - version: "1.0.0"
-        commit: "9260a6e"
-        sha256: ""
 
   batch-correction:
     source: git
     url: https://github.com/bobo-xxx/medflow-batch-correction.git
     versions:
       - version: "1.0.0"
-        commit: "76f9b98"
-        sha256: ""
 
   differential-analysis:
     source: git
     url: https://github.com/bobo-xxx/medflow-differential-analysis.git
     versions:
       - version: "1.0.0"
-        commit: "860f4d2"
-        sha256: ""
 
   go-kegg-enrichment:
     source: git
     url: https://github.com/bobo-xxx/medflow-go-kegg-enrichment.git
     versions:
       - version: "1.0.0"
-        commit: "3eb8183"
-        sha256: ""

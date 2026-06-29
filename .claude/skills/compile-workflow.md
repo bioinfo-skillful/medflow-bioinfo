@@ -26,13 +26,13 @@ Read the protocol `.md` file. Extract:
 
 ### 2. Discover Available Nodes
 
-First, read `registry.yaml` for git URLs and pinned commits — this is how nodes are fetched.
+First, read `registry.yaml` for git URLs — this is how nodes are fetched.
 Then read `manifest.yaml` for semantic metadata — subcommands, produces/consumes, file_layout conventions.
 
-**If `nodes/` is empty:** clone each node from its `registry.yaml` URL:
+Clone each node fresh from its `registry.yaml` URL:
 ```bash
+rm -rf nodes/<name>@<version>
 git clone <url> nodes/<name>@<version>
-cd nodes/<name>@<version> && git checkout <commit> && cd ../../..
 ```
 **Never search, read, copy, or reference any directory outside this sandbox.**
 `git clone` from registry URLs is the only allowed method to obtain nodes.
