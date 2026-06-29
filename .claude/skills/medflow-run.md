@@ -15,7 +15,9 @@ Execute a workflow from a workflow.json file.
 
 Read `workflow.json`. Validate structure: steps, edges, each step has `id`, `node`, `config`.
 
-**If `file_bindings` is present:** Use it as the authoritative wiring map. `file_bindings` was produced by compile-workflow and contains exact file resolution instructions. The checklist items marked `[fb]` below can skip inference — use the binding directly.
+**Prerequisite:** medflow-audit must pass before execution. If audit failed, do NOT proceed.
+
+**If `file_bindings` is present:** Use it as the authoritative wiring map. `file_bindings` was produced by medflow-compile and contains exact file resolution instructions. The checklist items marked `[fb]` below can skip inference — use the binding directly.
 
 **If `data_type_notes` is present:** Trust the compile agent's data inspection. Do not re-inspect unless something looks wrong at runtime.
 
@@ -167,7 +169,7 @@ If `file_bindings` for this step contains `extract_group_col` or `transform` dir
          w.writerow(["sample_id", "group"])
          for row in r: w.writerow([row["geo_accession"], row["er_status"]])
      ```
-   - **Coalesce with fallback chain (deterministic — compiled by compile-workflow):**
+   - **Coalesce with fallback chain (deterministic — compiled by medflow-compile):**
      ```json
      "extract_group_col": {
        "unified_name": "er_status",
