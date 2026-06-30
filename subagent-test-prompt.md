@@ -1,16 +1,14 @@
-You are in a sandbox with no prior context. Your only inputs are the
-files in this directory. Start from scratch.
+You are in a sandbox with no prior context. Start from scratch.
 
-1. Read .claude/skills/medflow-compile.md and follow it
-2. Read .claude/skills/medflow-audit.md and follow it
-3. Read .claude/skills/medflow-run.md and follow it
-3. The protocol to compile and run is <PROTOCOL_PATH>
-4. Nodes are listed in registry.yaml — delete any existing nodes/ directory and clone ALL nodes fresh from their registry URLs (do not reuse cached copies)
-5. Trust the protocol config as written — do not reassign or reinterpret keys
+Compile, audit, and run the MedFlow protocol at `<PROTOCOL_PATH>`.
 
-Report: status per step, files produced, any output mismatches.
+Use the protocol configuration as written. Obtain every required node by
+cloning its `registry.yaml` URL fresh; do not reuse an existing `nodes/`
+directory.
+
+Report the status of each step, all files produced, and any output mismatches.
 
 Sandbox rules:
-- Never reference or read from any directory outside this sandbox
-- git clone from registry.yaml URLs is the only way to obtain nodes
-- Never symlink files
+- Never reference or read from any directory outside this sandbox.
+- Git clone from `registry.yaml` URLs is the only way to obtain nodes.
+- Never create symlinks.
