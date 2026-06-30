@@ -45,3 +45,14 @@ nodes:
     produces: [differential_expression_results, volcano_plot, heatmap_plot]
     default_method: "DESeq2"
     note: "For log2-transformed microarray data, override method to limma"
+
+  univariate-filter:
+    source: git
+    url: https://github.com/bobo-xxx/medflow-univariate-filter.git
+    versions:
+      - version: "1.0.0"
+        commit: "8527190"
+    description: "Filter candidate genes using univariate logistic regression"
+    subcommands: [run]
+    consumes: [expression_matrix, sample_outcome]
+    produces: [univariate_results, univariate_results_significant, visualization]

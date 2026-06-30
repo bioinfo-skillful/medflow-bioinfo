@@ -1,4 +1,4 @@
-# Protocol: 4-Node Breast Cancer DEG Pipeline
+# Protocol: 5-Node Breast Cancer DEG Pipeline
 
 **Planner Agent:** manual-test | **Confidence:** high | **Decision:** proceed
 
@@ -44,12 +44,6 @@ merge:
   subcommand: intersect
   batch_correction: true
 
-univariate:
-  subcommand: run
-  outcome: group
-  outcome-type: binary
-  method: logistic
-
 deg:
   subcommand: run
   method: limma
@@ -58,6 +52,15 @@ deg:
 enrich:
   subcommand: enrich
   tax-id: "9606"
+
+univariate-filter:
+  subcommand: run
+  outcome: group
+  outcome_type: binary
+  method: logistic
+  p_adjust: BH
+  sig_basis: padj
+  sig_threshold: 0.1
 ```
 
 ---
@@ -70,9 +73,9 @@ enrich:
 flowchart TD
     A[fetch1] --> C[merge]
     B[fetch2] --> C[merge]
-    C --> D[univariate]
-    D --> E[deg]
-    E --> F[enrich]
+    C --> D[deg]
+    D --> E[enrich]
+    D --> F[univariate-filter]
 ```
 
 ### Detailed Steps
@@ -82,9 +85,9 @@ flowchart TD
 | fetch1 | GEO data retrieval | geo-microarray-processing | — | probe + gene expression + metadata | — | — |
 | fetch2 | GEO data retrieval | geo-microarray-processing | — | probe + gene expression + metadata | — | — |
 | merge | Gene intersection + ComBat | batch-correction | gene expression matrices | shared expression + metadata + PCA plots | — | — |
-| univariate | Univariate logistic regression | univariate-filter | shared expression, sample group map | significant genes (P<0.05) | — | — |
-| deg | Differential expression (ER+ vs ER-) | differential-analysis | shared expression, filtered gene list | DEGs, volcano, heatmap | — | — |
+| deg | Differential expression (ER+ vs ER-) | differential-analysis | shared expression, sample metadata | DEGs, volcano, heatmap | — | — |
 | enrich | GO/KEGG enrichment of DEGs | go-kegg-enrichment | DEG gene list | enrichment tables, bar/bubble plots | — | — |
+| univariate-filter | Univariate logistic regression (ER+ vs ER-) | univariate-filter | expression restricted to genes in DEGs, sample group map | ranked logistic results, significant results, forest plot | input features must match `DEGs.csv`; outcome must contain exactly P/N | — |
 
 ---
 
