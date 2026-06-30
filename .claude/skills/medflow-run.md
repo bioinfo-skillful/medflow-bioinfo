@@ -137,6 +137,13 @@ For each step, create this exact checklist and work through it:
   ```bash
   conda env create -f <env-file> -p runs/<workflow>/envs/<step-id>
   ```
+- After env creation, verify R packages are loadable. If a package is unavailable
+  via conda (common with Bioconductor packages on Windows), install via Rscript:
+  ```bash
+  conda run -p runs/<workflow>/envs/<step-id> Rscript -e \
+    'if (!require("<pkg>")) { BiocManager::install("<pkg>", update=FALSE, ask=FALSE) }'
+  ```
+  Check each package declared in `<env-file>` before declaring env ready.
 - Use `--override-channels` or ensure `nodefaults` in env file channels
 - Never use pre-existing global conda environments
 
