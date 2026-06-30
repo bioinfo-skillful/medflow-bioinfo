@@ -42,7 +42,6 @@ fetch2:
 
 merge:
   subcommand: intersect
-  batch_correction: true
 
 deg:
   subcommand: run
