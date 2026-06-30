@@ -11,7 +11,7 @@ nodes:
       - version: "1.0.0"
     description: "Fetch and process GEO microarray expression data with 5-tier fallback"
     subcommands: [fetch]
-    produces: [probe_expression_matrix, gene_expression_matrix, sample_metadata_table]
+    produces: [probe_expression_matrix, gene_expression_matrix, sample_metadata_table, sample_group_assignment]
     file_layout:
       nesting: "{gse_id}/"
 
@@ -23,7 +23,7 @@ nodes:
     description: "Merge multiple gene expression datasets via intersection with always-on ComBat batch correction, boxplot, and PCA QC"
     subcommands: [intersect]
     consumes: [expression_matrix_gene]
-    produces: [shared_expression_matrix, batch_corrected_expression, sample_metadata, boxplot, pca_plots]
+    produces: [sample_metadata, expression_matrix_gene, visualization]
     file_discovery:
       recursive: true
       pattern: "expr_gene_*.csv"
@@ -49,8 +49,8 @@ nodes:
       - version: "1.0.0"
     description: "Differential expression analysis comparing case vs control groups"
     subcommands: [run, validate-input, validate-output]
-    consumes: [expression_matrix, sample_group_map]
-    produces: [differential_expression_results, volcano_plot, heatmap_plot]
+    consumes: [expression_matrix, sample_metadata]
+    produces: [differential_expression_results, filtered_degs, volcano_plot, heatmap_plot, venn_diagram, chromosome_location_plot]
     default_method: "DESeq2"
     note: "For log2-transformed microarray data, override method to limma"
 
@@ -61,7 +61,7 @@ nodes:
       - version: "1.0.0"
     description: "GO (BP/CC/MF) and KEGG pathway enrichment analysis on gene symbol lists using Bioconductor clusterProfiler"
     subcommands: [enrich, merge, plot-bar, plot-bubble, plot-net, plot-emap]
-    consumes: [gene_symbol_list, deg_results]
+    consumes: [gene_symbol_list, deg_results, go_enrichment_result_raw, kegg_enrichment_result_raw, merged_enrichment_table]
     produces: [go_enrichment_table, kegg_enrichment_table, merged_enrichment_table, bar_plot, bubble_plot, cnet_plots, emap_plot]
     file_discovery:
       recursive: false
