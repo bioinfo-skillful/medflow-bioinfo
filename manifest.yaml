@@ -54,6 +54,26 @@ nodes:
     default_method: "auto"
     note: "Auto-detects: integer counts → DESeq2, normalized/log-transformed → limma. Override with --method to bypass detection."
 
+  diagnostic-model:
+    source: git
+    url: https://github.com/bobo-xxx/medflow-diagnostic-model.git
+    versions:
+      - version: "1.0.0"
+    description: "Multivariate logistic regression diagnostic model with univariate pre-screening, forest plot, and serialized model output"
+    subcommands: [analyze]
+    consumes: [expression_matrix, group_mapping, gene_list]
+    produces: [logistic_regression_results, forest_plot, logistic_model]
+
+  ml-feature-selection:
+    source: git
+    url: https://github.com/bobo-xxx/medflow-ml-feature-selection.git
+    versions:
+      - version: "1.0.0"
+    description: "ML feature selection with sequential and parallel modes — Random Forest, LASSO, consensus intersection, and convergence gate"
+    subcommands: [sequential, parallel]
+    consumes: [expression_matrix, group_mapping, gene_list]
+    produces: [gene_list, feature_importance_table, diagnostic_plots, venn_diagram, gate_decision]
+
   go-kegg-enrichment:
     source: git
     url: https://github.com/bobo-xxx/medflow-go-kegg-enrichment.git
