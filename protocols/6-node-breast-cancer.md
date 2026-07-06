@@ -1,4 +1,4 @@
-# Protocol: 5-Node Breast Cancer DEG Pipeline
+# Protocol: 6-Node Breast Cancer DEG Pipeline
 
 **Planner Agent:** manual-test | **Confidence:** high | **Decision:** proceed
 
@@ -60,6 +60,10 @@ univariate-filter:
   p_adjust: BH
   sig_basis: padj
   sig_threshold: 0.1
+
+feature-selection:
+  subcommand: sequential
+  control-label: N
 ```
 
 ---
@@ -72,9 +76,10 @@ univariate-filter:
 flowchart TD
     A[fetch1] --> C[merge]
     B[fetch2] --> C[merge]
-    C --> D[deg]
-    D --> E[enrich]
-    D --> F[univariate-filter]
+    C --> D[univariate-filter]
+    D --> E[feature-selection]
+    E --> F[deg]
+    F --> G[enrich]
 ```
 
 ### Detailed Steps
@@ -84,9 +89,10 @@ flowchart TD
 | fetch1 | GEO data retrieval | geo-microarray-processing | — | probe + gene expression + metadata | — | — |
 | fetch2 | GEO data retrieval | geo-microarray-processing | — | probe + gene expression + metadata | — | — |
 | merge | Gene intersection + ComBat | batch-correction | gene expression matrices | shared expression + metadata + PCA plots | — | — |
-| deg | Differential expression (ER+ vs ER-) | differential-analysis | shared expression, sample metadata | DEGs, volcano, heatmap | — | — |
+| univariate-filter | Univariate logistic regression (ER+ vs ER-) | univariate-filter | shared expression, sample group map | significant genes (padj ≤ 0.1) | outcome must contain exactly P/N | — |
+| feature-selection | RF → LASSO sequential | ml-feature-selection | univariate significant genes, sample group map | selected genes (LASSO nonzero), importance table, CV plots | ≥ 2 genes selected | — |
+| deg | Differential expression (ER+ vs ER-) | differential-analysis | shared expression, sample group map | DEGs restricted to selected genes, volcano, heatmap | — | — |
 | enrich | GO/KEGG enrichment of DEGs | go-kegg-enrichment | DEG gene list | enrichment tables, bar/bubble plots | — | — |
-| univariate-filter | Univariate logistic regression (ER+ vs ER-) | univariate-filter | expression restricted to genes in DEGs, sample group map | ranked logistic results, significant results, forest plot | input features must match `DEGs.csv`; outcome must contain exactly P/N | — |
 
 ---
 
