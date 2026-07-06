@@ -1,4 +1,4 @@
-# Protocol: 6-Node Breast Cancer DEG Pipeline
+# Protocol: 7-Node Breast Cancer Diagnostic Pipeline
 
 **Planner Agent:** manual-test | **Confidence:** high | **Decision:** proceed
 
@@ -64,6 +64,9 @@ univariate-filter:
 feature-selection:
   subcommand: sequential
   control-label: N
+
+diagnostic-model:
+  subcommand: train
 ```
 
 ---
@@ -79,7 +82,8 @@ flowchart TD
     C --> D[deg]
     D --> E[univariate-filter]
     E --> F[feature-selection]
-    D --> G[enrich]
+    F --> G[diagnostic-model]
+    D --> H[enrich]
 ```
 
 ### Detailed Steps
@@ -92,6 +96,7 @@ flowchart TD
 | deg | Differential expression (ER+ vs ER-) | differential-analysis | shared expression, sample group map | DEGs (all genes), volcano, heatmap | — | — |
 | univariate-filter | Univariate logistic regression on DEGs | univariate-filter | DEG gene list, shared expression, sample group map | significant genes (padj ≤ 0.1) | outcome must contain exactly P/N | — |
 | feature-selection | RF → LASSO sequential | ml-feature-selection | univariate significant genes, expression, sample group map | selected genes (LASSO nonzero), importance table, CV plots | ≥ 2 genes selected | — |
+| diagnostic-model | Multivariate diagnostic model | diagnostic-model | selected genes, shared expression, sample group map | coefficients, risk scores, forest plot, ROC, calibration, DCA | AUC > 0.85, calibration slope 0.9–1.1 | recalibrate or reselect |
 | enrich | GO/KEGG enrichment of DEGs | go-kegg-enrichment | DEG gene list | enrichment tables, bar/bubble plots | — | — |
 
 ---
