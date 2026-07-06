@@ -51,8 +51,8 @@ nodes:
     subcommands: [run, validate-input, validate-output]
     consumes: [expression_matrix, sample_metadata]
     produces: [differential_expression_results, filtered_degs, volcano_plot, heatmap_plot, venn_diagram, chromosome_location_plot]
-    default_method: "DESeq2"
-    note: "For log2-transformed microarray data, override method to limma"
+    default_method: "auto"
+    note: "Auto-detects: integer counts → DESeq2, normalized/log-transformed → limma. Override with --method to bypass detection."
 
   go-kegg-enrichment:
     source: git
