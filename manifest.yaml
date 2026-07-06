@@ -59,8 +59,8 @@ nodes:
     url: https://github.com/bobo-xxx/medflow-diagnostic-model.git
     versions:
       - version: "1.0.0"
-    description: "Multivariate logistic regression diagnostic model with univariate pre-screening, forest plot, and serialized model output"
-    subcommands: [analyze]
+    description: "Univariate logistic regression diagnostic model per gene with forest plot and serialized model output"
+    subcommands: [train, valid, visualize]
     consumes: [expression_matrix, group_mapping, gene_list]
     produces: [logistic_regression_results, forest_plot, logistic_model]
 
@@ -71,8 +71,8 @@ nodes:
       - version: "1.0.0"
     description: "ML feature selection with sequential and parallel modes — Random Forest, LASSO, consensus intersection, and convergence gate"
     subcommands: [sequential, parallel]
-    consumes: [expression_matrix, group_mapping, gene_list]
-    produces: [gene_list, feature_importance_table, diagnostic_plots, venn_diagram, gate_decision]
+    consumes: [expression_matrix, group_mapping]
+    produces: [gene_list, feature_importance_table, diagnostic_plot, venn_diagram, gate_decision]
 
   go-kegg-enrichment:
     source: git
@@ -82,7 +82,7 @@ nodes:
     description: "GO (BP/CC/MF) and KEGG pathway enrichment analysis on gene symbol lists using Bioconductor clusterProfiler"
     subcommands: [enrich, merge, plot-bar, plot-bubble, plot-net, plot-emap]
     consumes: [gene_symbol_list, deg_results, go_enrichment_result_raw, kegg_enrichment_result_raw, merged_enrichment_table]
-    produces: [go_enrichment_table, kegg_enrichment_table, merged_enrichment_table, bar_plot, bubble_plot, cnet_plots, emap_plot]
+    produces: [go_enrichment_table, kegg_enrichment_table, go_enrichment_result_raw, kegg_enrichment_result_raw, merged_enrichment_table, bar_plot, bubble_plot, cnet_plot, emap_plot]
     file_discovery:
       recursive: false
       pattern: "*.csv"
