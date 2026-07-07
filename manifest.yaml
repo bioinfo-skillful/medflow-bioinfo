@@ -59,7 +59,7 @@ nodes:
     url: https://github.com/bobo-xxx/medflow-diagnostic-model.git
     versions:
       - version: "1.0.0"
-    description: "Univariate logistic regression diagnostic model per gene with forest plot and serialized model output"
+    description: "Multivariate logistic regression diagnostic model with all genes as predictors, forest plot, and serialized model output"
     subcommands: [train, valid, visualize]
     consumes: [expression_matrix, group_mapping, gene_list]
     produces: [logistic_regression_results, forest_plot, logistic_model]
