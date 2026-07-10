@@ -6,7 +6,7 @@ schema: node-manifest@1.0
 nodes:
   geo-microarray-processing:
     source: git
-    url: https://github.com/bobo-xxx/medflow-geo-microarray.git
+    url: https://github.com/bioinfo-skillful/medflow-geo-microarray.git
     versions:
       - version: "1.0.0"
     description: "Fetch and process GEO microarray expression data with 5-tier fallback"
@@ -17,7 +17,7 @@ nodes:
 
   batch-correction:
     source: git
-    url: https://github.com/bobo-xxx/medflow-batch-correction.git
+    url: https://github.com/bioinfo-skillful/medflow-batch-correction.git
     versions:
       - version: "1.0.0"
     description: "Merge multiple gene expression datasets via intersection with always-on ComBat batch correction, boxplot, and PCA QC"
@@ -34,7 +34,7 @@ nodes:
 
   univariate-filter:
     source: git
-    url: https://github.com/bobo-xxx/medflow-univariate-filter.git
+    url: https://github.com/bioinfo-skillful/medflow-univariate-filter.git
     versions:
       - version: "1.0.0"
     description: "Univariate association tests on each feature against an outcome variable — supports binary, multi-group, continuous, and survival outcomes"
@@ -44,7 +44,7 @@ nodes:
 
   differential-analysis:
     source: git
-    url: https://github.com/bobo-xxx/medflow-differential-analysis.git
+    url: https://github.com/bioinfo-skillful/medflow-differential-analysis.git
     versions:
       - version: "1.0.0"
     description: "Differential expression analysis comparing case vs control groups"
@@ -56,7 +56,7 @@ nodes:
 
   diagnostic-model:
     source: git
-    url: https://github.com/bobo-xxx/medflow-diagnostic-model.git
+    url: https://github.com/bioinfo-skillful/medflow-diagnostic-model.git
     versions:
       - version: "1.0.0"
     description: "Multivariate logistic regression diagnostic model with LOOCV risk scores, forest plot, ROC, calibration, DCA, and serialized model output"
@@ -66,7 +66,7 @@ nodes:
 
   ml-feature-selection:
     source: git
-    url: https://github.com/bobo-xxx/medflow-ml-feature-selection.git
+    url: https://github.com/bioinfo-skillful/medflow-ml-feature-selection.git
     versions:
       - version: "1.0.0"
     description: "ML feature selection with sequential and parallel modes — Random Forest, LASSO, consensus intersection, and convergence gate"
@@ -76,7 +76,7 @@ nodes:
 
   go-kegg-enrichment:
     source: git
-    url: https://github.com/bobo-xxx/medflow-go-kegg-enrichment.git
+    url: https://github.com/bioinfo-skillful/medflow-go-kegg-enrichment.git
     versions:
       - version: "1.0.0"
     description: "GO (BP/CC/MF) and KEGG pathway enrichment analysis on gene symbol lists using Bioconductor clusterProfiler"
