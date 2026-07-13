@@ -1,6 +1,6 @@
 ---
 name: "MedFlow Audit"
-description: Audit a compiled workflow before execution by verifying configuration, data compatibility, identifiers, node versions, and runtime packages
+description: Audit and, when safe, remediate a compiled workflow by verifying configuration, data compatibility, identifiers, pinned node revisions, and runtime packages; produce labeled reproducible code for every repair
 category: Workflow
 tags: [workflow, audit, medflow]
 ---
@@ -11,6 +11,11 @@ steps when checks depend on runtime data.
 The audit rejects demonstrated incompatibility, not naming differences or
 dependencies with a documented, verified installation fallback.
 
+The audit may edit a pinned node checkout or write adapter/helper code when a
+finding can be repaired without silently changing scientific meaning. Every
+repair must be labeled, reproducible from the pinned inputs and node commit,
+tested, and re-audited before execution continues.
+
 ## Severity Model
 
 - **CRITICAL**: proven incompatible data, a missing required parameter, or a
@@ -20,6 +25,165 @@ dependencies with a documented, verified installation fallback.
 - **DEFERRED**: a check requires upstream runtime output that does not exist
   yet. Deferred checks permit only prerequisite fetch steps; repeat the audit
   before merge, DEG, enrichment, or filtering.
+
+## Remediation Authority
+
+Diagnose and assign a stable finding ID before changing anything. The audit may
+then perform one of these remediations:
+
+- **INPUT_ADAPTER**: write deterministic code that creates a new run-local
+  derived input, such as column renaming, exact label filtering, transposition,
+  feature subsetting, or schema normalization.
+- **NODE_PATCH**: edit the pinned node checkout to fix an implementation defect
+  while preserving the declared scientific method and public contract.
+- **HELPER_CODE**: write a missing deterministic conversion, validation, or
+  orchestration helper required to connect declared-compatible artifacts.
+- **ENVIRONMENT_FIX**: amend only the isolated runtime environment or install a
+  documented dependency fallback.
+
+The audit must not automatically make a change that alters the biological
+contrast, statistical method, normalization, identifier semantics, imputation,
+feature-selection meaning, model target, output schema, or public node
+contract. Such a change requires explicit user confirmation and corresponding
+protocol, registry, and node `SKILL.md` documentation updates.
+
+Never overwrite or modify raw/source input files. Write derived inputs beneath:
+
+```text
+runs/<workflow>/audit-remediation/<finding-id>/outputs/
+```
+
+Do not push, commit, or publish a node patch unless the user separately asks.
+
+## Affected Input Inventory
+
+Before writing an `INPUT_ADAPTER`, report each affected file with:
+
+- absolute run-local path and SHA-256;
+- producing step or external-input provenance;
+- observed format, delimiter, dimensions, identifier column, required columns,
+  and a small non-sensitive schema sample;
+- the exact incompatibility and downstream parameter it blocks;
+- whether the proposed change is mechanical or changes scientific meaning;
+- adapter code path, derived output path, expected schema, and acceptance
+  checks.
+
+Label the source file `immutable: true`. The adapter must read it and create a
+new finding-ID-labeled output; it must never edit the file in place.
+
+## Labeled Reproducibility Bundle
+
+Store every repair beneath:
+
+```text
+workflows/remediations/<workflow>/<finding-id>/
+├── remediation.yaml
+├── code/
+├── node.patch                 # NODE_PATCH only
+├── run_command.ps1            # Windows, when applicable
+├── run_command.sh             # POSIX, when applicable
+├── environment.yaml           # or an equivalent lock/session record
+├── checksums.sha256
+├── tests/
+└── logs/
+```
+
+`remediation.yaml` must label the repair with:
+
+- `label: MEDFLOW_AUDIT_GENERATED_REMEDIATION`;
+- finding ID, remediation type, UTC creation time, and rationale;
+- workflow path and pre-remediation workflow SHA-256;
+- node name, registry URL, declared version, default branch, and pinned base
+  commit when a node is involved;
+- raw input paths and SHA-256 checksums without copying or changing them;
+- every generated, modified, and derived file;
+- exact command, working directory, environment, random seeds, and expected
+  outputs;
+- whether scientific meaning or the public contract changed;
+- tests run, exit codes, observed outputs, and post-remediation audit result.
+
+Begin generated source files with a language-appropriate comment containing
+`MEDFLOW_AUDIT_GENERATED_REMEDIATION`, the finding ID, purpose, and bundle path.
+For formats that cannot contain comments, such as CSV, use a filename containing
+the finding ID and record the label in a sidecar `remediation.yaml` entry.
+
+For a node edit, preserve the registry commit as the immutable base, export the
+complete change as `node.patch`, and record its SHA-256. A future run must clone
+the pinned base commit and apply that exact patch; an unrecorded dirty checkout
+is never an executable source.
+
+Use this minimum manifest shape:
+
+```yaml
+schema: medflow-audit-remediation@1
+label: MEDFLOW_AUDIT_GENERATED_REMEDIATION
+finding_id: MF-AUD-001
+type: INPUT_ADAPTER  # INPUT_ADAPTER | NODE_PATCH | HELPER_CODE | ENVIRONMENT_FIX
+created_at_utc: "<ISO-8601>"
+scientific_meaning_changed: false
+public_contract_changed: false
+workflow:
+  path: workflows/<name>.json
+  sha256: "<sha256>"
+node:
+  name: "<node-or-null>"
+  url: "<registry-url-or-null>"
+  version: "<version-or-null>"
+  base_commit: "<sha-or-null>"
+inputs:
+  - path: "<immutable-source-path>"
+    sha256: "<sha256>"
+    immutable: true
+artifacts:
+  - path: code/<script>
+    sha256: "<sha256>"
+    label: MEDFLOW_AUDIT_GENERATED_REMEDIATION
+reproduction:
+  working_directory: "<sandbox-relative-path>"
+  command: "<exact-command>"
+  environment: environment.yaml
+  seeds: {}
+verification:
+  tests: []
+  smoke_test_exit_code: null
+  reaudit_status: null
+```
+
+## Remediation Verification
+
+After writing a repair:
+
+1. Recreate or verify the repair from its recorded command in an isolated
+   remediation directory.
+2. Verify all input, code, patch, environment, and output checksums.
+3. Run focused unit/validation tests and a minimal affected-step smoke test when
+   safe test data are available.
+4. Re-run every audit check affected by the finding.
+5. For a node patch, start from a clean clone of the pinned commit, apply
+   `node.patch`, and prove the resulting diff and code hashes match the bundle.
+6. Write `workflows/<name>.audited.json` containing the original compiled
+   workflow SHA-256 plus references and checksums for all accepted remediation
+   bundles. Do not overwrite the original compiled workflow.
+
+Only a successfully reproduced and re-audited repair may change a finding from
+CRITICAL to remediated.
+
+## Runtime Agent-Review Findings
+
+`medflow-run` performs an automatic agent review after every node attempt. When
+that review returns `retry` because adapter/helper code or a node edit is
+needed, treat the review as a new audit finding and apply the remediation rules
+above. Preserve the failed node-run workspace and its `agent-review.json`;
+include its workspace ID, path, and SHA-256 in `remediation.yaml` as the
+triggering evidence.
+
+After remediation, re-audit the affected node, its input/output contract, and
+all downstream assumptions invalidated by the change. Return an updated
+audited workflow with the remediation bundle reference. The run agent then
+reruns the node in a new unique workspace, links it to the failed parent
+workspace in the append-only registry, and reviews it again. Routine
+agent review and contract-preserving retries do not require user approval;
+scientific-meaning or public-contract changes still do.
 
 ## Checks
 
@@ -52,6 +216,11 @@ For every `bind: upstream` parameter:
 - Mark **CRITICAL** only when structure or content proves incompatibility.
 - If required files do not exist yet, mark the structural checks
   **DEFERRED**.
+- Validate runtime file bindings and output-directory arguments against the
+  entry point's actual path-resolution and write behavior. A binding that names
+  a compatible artifact but passes it through the wrong argument or resolves
+  it from the wrong working directory is **CRITICAL**. Re-audit any direct run
+  adjustment that changes an argument, path, config value, or file binding.
 
 ### 3. Group Column Coverage Audit
 
@@ -86,12 +255,21 @@ When the group map and expression matrix exist:
 
 For every node directory:
 
-- Read local HEAD with `git log --oneline -1`.
+- Require the compiled workflow step to record its registry URL, declared
+  version, resolved default branch, exact commit SHA, and node `SKILL.md`
+  SHA-256. A workflow without an exact commit or contract hash is **CRITICAL**
+  and must be recompiled.
+- Confirm the workflow URL matches the current `registry.yaml` entry. A
+  mismatch is **CRITICAL** because node provenance is ambiguous.
 - Run `git fetch origin`.
-- Resolve the remote default branch through `refs/remotes/origin/HEAD`; do not
-  assume `origin/main`.
-- Compare local HEAD with that remote ref. A stale clone is a **WARNING** and
-  must be refreshed before execution.
+- Verify the recorded commit exists in the cloned repository and compare local
+  HEAD with that commit. A mismatch is **CRITICAL**; checkout the pinned commit
+  and repeat the audit rather than switching to the latest remote revision.
+- Hash the pinned node's `SKILL.md` and compare it with the compiled contract
+  hash. A mismatch is **CRITICAL** because parameter provenance is ambiguous.
+- Resolve the current remote default branch through `refs/remotes/origin/HEAD`.
+  If it has advanced beyond the pinned commit, report a **WARNING** for a newer
+  available revision but continue auditing the pinned workflow.
 - A default branch named `master` or anything other than `main` is a
   **WARNING**, not a failure.
 
@@ -122,6 +300,12 @@ Pass:
 {"level":"result","status":"pass","checks":6,"warnings":[],"deferred":[],"critical":[]}
 ```
 
+Pass with reproducible remediation:
+
+```json
+{"level":"result","status":"pass_with_remediation","checks":6,"warnings":[],"deferred":[],"critical":[],"remediated":[{"finding_id":"MF-AUD-001","type":"INPUT_ADAPTER","bundle":"workflows/remediations/<workflow>/MF-AUD-001/remediation.yaml","bundle_sha256":"<sha256>","verification":"pass"}],"audited_workflow":"workflows/<name>.audited.json"}
+```
+
 Deferred:
 
 ```json
@@ -140,3 +324,7 @@ Execution policy:
 - `deferred`: execute only prerequisite fetch steps identified by the audit,
   then repeat the audit.
 - `pass`: proceed with the remaining DAG.
+- `pass_with_remediation`: execute only
+  `workflows/<name>.audited.json`. medflow-run must verify every remediation
+  label and checksum, clone the pinned base commit, apply recorded patches or
+  run recorded adapters exactly, and reject any unrecorded edit.

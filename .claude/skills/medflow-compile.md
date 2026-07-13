@@ -20,38 +20,77 @@ Read the protocol `.md` file. Extract:
 - **Name**: From `# Protocol: <Title>`
 - **Research question**: From `## research_question` section — the biological question, grouping, expected contrasts
 - **Pipeline DAG**: From the mermaid `flowchart TD` block in `## analysis_pipeline`
-- **Step table**: From the markdown table — Step, Method, Tool/R Package columns
-- **Config**: From `## config` YAML block — per-step configuration
+- **Analysis intent**: From sections such as `## analysis_preferences`,
+  `## expected_agent_interpretation`, or equivalent prose
+- **Step table**: From the markdown table when present. Treat it as optional;
+  intent-first protocols may describe steps only through the DAG and prose.
+- **Config**: From a `## config` YAML block when present. Treat it as optional;
+  scientific preferences expressed in prose are not node parameters until the
+  compiler maps them to a selected node contract.
 - **Quality gates**: From `## quality_gates_and_veto_rules` section (if any)
 
 ### 2. Discover Available Nodes
 
-First, read `registry.yaml` for git URLs — this is how nodes are fetched.
-Then read `manifest.yaml` for semantic metadata — subcommands, produces/consumes, file_layout conventions.
+Read `registry.yaml` only for node names, versions, and Git clone URLs. Do not
+use or expect a central node manifest. Discover capabilities, subcommands,
+inputs, outputs, parameters, defaults, file layouts, and exceptions by reading
+each freshly cloned node's `SKILL.md` at the pinned commit.
 
-Clone each node fresh from its `registry.yaml` URL:
-```bash
-rm -rf nodes/<name>@<version>
+Clone each node fresh from its `registry.yaml` URL. Remove any target checkout
+with the current platform's native filesystem command only after verifying that
+its resolved absolute path is inside the sandbox, then run:
+
+```text
 git clone <url> nodes/<name>@<version>
 ```
+
 **Never search, read, copy, or reference any directory outside this sandbox.**
 `git clone` from registry URLs is the only allowed method to obtain nodes.
+
+Immediately after cloning, resolve and record:
+
+- registry URL and declared version;
+- remote default branch through `refs/remotes/origin/HEAD`;
+- exact commit SHA from `git rev-parse HEAD`.
+
+The resolved commit is the immutable node revision for this compiled workflow.
+Every workflow step must carry this source record so audit and run can verify
+and execute the same commit even if the remote default branch advances later.
 
 For each node, read:
 - `SKILL.md` frontmatter: `name`, `type`, `inputs`/`outputs` (semantic_type, format), `parameters` (bind, type, required, default), `entry_point`, `file_layout`, `file_discovery`
 - **The entry point** (`scripts/main.R` or `scripts/main.py`): verify subcommands, check for conditional outputs, confirm file_discovery declarations
 
-Build a registry: `{name: {version, manifest, subcommands, produces, consumes}}`.
+`SKILL.md` is the declared contract; the entry point is observed implementation
+behavior. If they disagree, report contract drift and stop compilation for that
+node rather than silently preferring either source.
+
+Build an in-memory catalog from the inspected contracts:
+`{name: {version, url, default_branch, commit, contract_sha256, subcommands,
+produces, consumes, parameters, defaults}}`. Persist the selected contract hash
+and the agent's node/parameter-selection reasoning in `workflow.json`.
 
 ### 3. Match Steps to Nodes
 
-For each step in the protocol's step table:
+Build the semantic step list from the protocol's step table when present;
+otherwise, derive it from the labeled nodes in the analysis DAG and their
+descriptions in the surrounding prose.
 
-1. Extract the `Tool/R Package` column value
-2. Find the matching node by SKILL.md `name` field
-3. If exact match not found, fuzzy match: step method/description → node description
-4. If still unresolved, flag for human review
-5. **Verify the configured subcommand exists** in the node's entry point
+For each semantic step:
+
+1. If a `Tool/R Package` value is present, try an exact match against the node
+   `name` field.
+2. Otherwise, match the step's scientific purpose, required inputs, and desired
+   results against node descriptions and semantic `consumes`/`produces`
+   declarations.
+3. Use pipeline position and neighboring semantic types to disambiguate
+   multiple plausible nodes. Do not require the protocol author to know node
+   package names.
+4. If one compatible node remains, select it and record the reasoning. If the
+   choice remains ambiguous, flag it for human review rather than inventing a
+   package assignment.
+5. Select and verify the appropriate subcommand from the chosen node's
+   `SKILL.md` and entry point. The protocol does not need to name it.
 
 ### 4. Determine Edges
 
@@ -62,21 +101,44 @@ Parse the mermaid DAG:
 
 ### 5. Extract Config Bindings
 
-For each step, map the protocol's research question and config section to node parameters:
+For each step, map the protocol's research question, analysis preferences, and
+optional config section to node parameters only after selecting the node.
+
+For every selected parameter, read its declaration from the pinned node
+`SKILL.md` and record `value`, `source`, and `rationale` in the compiled step.
+Resolve values in this order:
+
+1. an explicit protocol value compatible with the declared type/allowed set;
+2. a value deterministically implied by protocol intent or inspected upstream
+   data, with the evidence recorded;
+3. the node-declared default, recorded as an applied default;
+4. agent-filled mechanical choice when the contract permits several equivalent
+   representations, with reasoning and validation against the entry point.
+
+Do not invent an undeclared parameter or default. If the remaining choice can
+change scientific interpretation and the protocol or node contract does not
+resolve it, request user direction rather than filling it silently.
+
+Treat scientific concepts separately from literal configuration keys. For
+example, "method suitable for normalized microarray measurements" is an intent
+that the compiler resolves after data inspection; it is not itself a CLI
+parameter name.
 
 **From config YAML block:**
+- If no config block is present, continue using research intent, analysis
+  preferences, quality gates, inspected data, and node defaults.
 - Read per-step key-value pairs
 - Map YAML keys to node parameter names using this transform:
 
-  | Transform | Example |
-  |-----------|---------|
-  | Underscore `_` → hyphen `-` | `gse_id` → `gse-id` |
-  | Add `--` prefix | `gse-id` → `--gse-id` |
-  | Match against node's `parameters[].name` | `--gse-id` matches `--gse-id` |
-  | Bool params: pass as flag (no value) when `true` | `batch_correction: true` → `--batch-correction` |
+| Transform | Example |
+|-----------|---------|
+| Underscore `_` → hyphen `-` | `gse_id` → `gse-id` |
+| Add `--` prefix | `gse-id` → `--gse-id` |
+| Match against node's `parameters[].name` | `--gse-id` matches `--gse-id` |
+| Bool params: pass as flag (no value) when `true` | `batch_correction: true` → `--batch-correction` |
 
-  Do NOT skip the transform — every YAML key goes through underscore→hyphen→prefix→match.
-  If the final form does not match any parameter name, flag it (caught by §6 audit gate).
+Do NOT skip the transform — every YAML key goes through underscore→hyphen→prefix→match.
+If the final form does not match any parameter name, flag it (caught by §6 audit gate).
 
 **From research question:**
 - If the question defines a group comparison (e.g. "ER+ vs ER-"), derive:
@@ -101,7 +163,8 @@ When the research question defines a group comparison, resolve `group_col` again
 
 For each upstream dataset that feeds the merge step:
 
-1. Open the metadata CSV (by convention, or from `manifest.yaml` `file_discovery.sidecar`)
+1. Open the metadata CSV using the selected node `SKILL.md` file-discovery and
+   sidecar declarations, confirmed against its entry point.
 2. List all column names: direct columns AND `characteristics_ch1` key:value keys
 3. Check whether `group_col` exists exactly
 
@@ -126,18 +189,20 @@ After assigning config to steps, verify each key against the target node's decla
    - The protocol author may have specified a config that no available node supports.
 4. **If a required parameter has no config value:** check the node's `default` field. If no default, flag as an error — the run will fail.
 
-5. **Config audit gate — review all warnings before writing workflow.json:**
+**Config audit gate — review all warnings before writing `workflow.json`:**
 
-   After validation, review every warning and error. Categorize each:
+After validation, review every warning and error. Categorize each:
 
-   | Severity | Pattern | Action |
-   |----------|---------|--------|
-   | **CRITICAL** | Config key mapped to NO node parameter in the pipeline | **HALT.** Do not write workflow.json. Report the unresolved key with its step and protocol source. |
-   | **OK** | Config key reassigned to a different step (matched there) | Note in workflow, proceed. |
-   | **OK** | Required parameter missing but has default | Note default used, proceed. |
-   | **OK** | Conditional output absent (flag not passed) | Expected, proceed. |
+| Severity | Pattern | Action |
+|----------|---------|--------|
+| **CRITICAL** | Config key mapped to no node parameter in the pipeline | **HALT.** Do not write `workflow.json`. Report the unresolved key with its step and protocol source. |
+| **OK** | Config key reassigned to a different step (matched there) | Note in workflow and proceed. |
+| **OK** | Required parameter missing but has a default | Note the default used and proceed. |
+| **OK** | Conditional output absent because its flag was not passed | Treat the omission as expected and proceed. |
 
-   **If any CRITICAL warning exists, do NOT write workflow.json.** Halt and report all critical warnings. The protocol config must be fixed before compilation can succeed.
+**If any CRITICAL warning exists, do not write `workflow.json`.** Halt and
+report all critical warnings. The protocol config must be fixed before
+compilation can succeed.
 
 ### 6a. Validate Group Column Coverage
 
@@ -186,9 +251,34 @@ For each edge `A → B`:
   - Check if the upstream node can produce the missing output (conditional on a flag?)
   - Suggest config changes to enable the missing output
 
+For each required node input with no valid upstream producer:
+
+- Determine whether it is an external reference resource, such as a GMT gene-set
+  database, rather than an analysis artifact that the workflow should produce.
+- If it is external, add an `external_inputs` entry containing the downstream
+  parameter, source URL or acquisition instruction, database/release, checksum
+  when available, expected format, and run-local destination.
+- Do not invent an upstream edge or silently search arbitrary local directories.
+- If licensing, authentication, or an unresolved scientific choice prevents
+  deterministic acquisition, stop and request the missing decision before
+  declaring the workflow execution-ready.
+- A missing expression matrix, sample annotation, model artifact, or other
+  workflow-generated result is not an external reference resource; treat that
+  as a data-flow error.
+
+When a protocol restricts a downstream analysis to a candidate feature set but
+the selected node accepts only an expression matrix, compile an explicit
+`filter_features` transformation. Bind the original expression matrix plus the
+upstream candidate table, declare the identifier columns, preserve candidate
+order or document the chosen order, and write a run-local filtered matrix. Do
+not invent an unsupported gene-list CLI parameter.
+
 ### 8. Generate workflow.json
 
-The workflow.json must be **execution-ready** — the run agent should be able to dispatch every step without reading node code.
+The workflow.json must be **fully bound**: node assignment, immutable source
+revision, configuration, file bindings, and external inputs are resolved.
+medflow-run must still read each cloned `SKILL.md` and entry point to verify
+that the pinned implementation has not drifted from its declared contract.
 
 For each step, produce a `config` block that covers:
 
@@ -197,6 +287,14 @@ For each step, produce a `config` block that covers:
 - **Method overrides**: when the node's default doesn't match the data type
 - **Cutoff overrides**: when defaults don't fit the research question or sample size
 - **Group specification**: which column to use, how to map labels
+- **Immutable source**: registry URL, declared version, resolved default branch,
+  exact commit SHA, and pinned `SKILL.md` SHA-256
+- **Parameter provenance**: protocol/default/inspection/agent-filled source and
+  rationale for every value
+
+Do not compile a fixed output directory into scientific config. Mark the
+declared output-directory parameter as runtime-bound; `medflow-run` fills it
+with the unique node-run workspace's `outputs/` path.
 
 For each edge, produce `file_bindings` that tell the run agent exactly how to wire data:
 
@@ -205,11 +303,15 @@ For each edge, produce `file_bindings` that tell the run agent exactly how to wi
 - **Which downstream param** it maps to (from downstream SKILL.md inputs)
 - **How to resolve** if the file needs transformation (group column extraction, etc.)
 
+For every external reference resource, produce an `external_inputs` binding
+with enough provenance and integrity information for medflow-run to acquire or
+verify the exact resource without guessing.
+
 Write to `workflows/<name>.json`:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "name": "<kebab-case-name>",
   "description": "<research question summary>",
   "research_question": "Compare ER+ vs ER- breast cancer tumors to identify differentially expressed genes",
@@ -217,31 +319,87 @@ Write to `workflows/<name>.json`:
     {
       "id": "fetch1",
       "node": "geo-microarray-processing@1.0.0",
+      "source": {
+        "url": "https://github.com/bioinfo-skillful/medflow-geo-microarray.git",
+        "version": "1.0.0",
+        "default_branch": "main",
+        "commit": "<40-hex-sha>",
+        "contract_sha256": "<skill-md-sha256>"
+      },
       "config": {
         "subcommand": "fetch",
-        "gse_id": "GSE25066",
-        "outdir": "runs/<workflow>/fetch1"
+        "gse_id": "GSE25066"
+      },
+      "config_provenance": {
+        "subcommand": {"source": "agent-filled", "rationale": "Selected node action for protocol fetch intent."},
+        "gse_id": {"source": "protocol", "rationale": "Discovery cohort named by the protocol."},
+        "outdir": {"source": "runtime-workspace", "rationale": "Filled by medflow-run with the selected unique workspace output path."}
+      }
+    },
+    {
+      "id": "fetch2",
+      "node": "geo-microarray-processing@1.0.0",
+      "source": {
+        "url": "https://github.com/bioinfo-skillful/medflow-geo-microarray.git",
+        "version": "1.0.0",
+        "default_branch": "main",
+        "commit": "<40-hex-sha>",
+        "contract_sha256": "<skill-md-sha256>"
+      },
+      "config": {
+        "subcommand": "fetch",
+        "gse_id": "GSE20194"
+      },
+      "config_provenance": {
+        "subcommand": {"source": "agent-filled", "rationale": "Selected node action for protocol fetch intent."},
+        "gse_id": {"source": "protocol", "rationale": "Discovery cohort named by the protocol."},
+        "outdir": {"source": "runtime-workspace", "rationale": "Filled by medflow-run."}
       }
     },
     {
       "id": "merge",
       "node": "batch-correction@1.0.0",
+      "source": {
+        "url": "https://github.com/bioinfo-skillful/medflow-batch-correction.git",
+        "version": "1.0.0",
+        "default_branch": "main",
+        "commit": "<40-hex-sha>",
+        "contract_sha256": "<skill-md-sha256>"
+      },
       "config": {
         "subcommand": "intersect",
         "group_col": "er_status",
-        "pattern": "expr_gene_*.csv",
-        "outdir": "runs/<workflow>/merge"
+        "pattern": "expr_gene_*.csv"
+      },
+      "config_provenance": {
+        "subcommand": {"source": "agent-filled", "rationale": "Selected contract action for cohort harmonization."},
+        "group_col": {"source": "protocol", "rationale": "Protocol comparison field."},
+        "pattern": {"source": "node-default", "rationale": "Pinned SKILL.md declared default."},
+        "outdir": {"source": "runtime-workspace", "rationale": "Filled by medflow-run."}
       }
     },
     {
       "id": "deg",
       "node": "differential-analysis@1.0.0",
+      "source": {
+        "url": "https://github.com/bioinfo-skillful/medflow-differential-analysis.git",
+        "version": "1.0.0",
+        "default_branch": "main",
+        "commit": "<40-hex-sha>",
+        "contract_sha256": "<skill-md-sha256>"
+      },
       "config": {
         "subcommand": "run",
         "method": "limma",
         "p_set": "padj",
-        "logfc_cutoff": "0.5",
-        "outdir": "runs/<workflow>/deg"
+        "logfc_cutoff": "0.5"
+      },
+      "config_provenance": {
+        "subcommand": {"source": "agent-filled", "rationale": "Selected contract action for differential analysis."},
+        "method": {"source": "data-inspection", "rationale": "Normalized log-scale microarray expression."},
+        "p_set": {"source": "node-default", "rationale": "Pinned SKILL.md declared default."},
+        "logfc_cutoff": {"source": "protocol", "rationale": "Protocol effect-size threshold."},
+        "outdir": {"source": "runtime-workspace", "rationale": "Filled by medflow-run."}
       }
     }
   ],
@@ -285,6 +443,9 @@ Write to `workflows/<name>.json`:
 
 After writing workflow.json, load and run `medflow-audit` skill.
 - If audit passes: proceed to medflow-run.
+- If audit returns `pass_with_remediation`: run only the generated
+  `workflows/<name>.audited.json`, which must reference labeled remediation
+  bundles and preserve the original compiled workflow SHA-256.
 - If audit fails with CRITICAL violations: halt. Fix the issues before execution.
 - If audit returns DEFERRED checks: medflow-run may execute only the
   prerequisite fetch steps named by the audit. Repeat medflow-audit on the
