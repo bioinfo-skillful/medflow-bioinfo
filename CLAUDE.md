@@ -76,3 +76,22 @@ checksum. Never substitute a different release silently.
 ## Language
 
 Use English for artifacts, commit messages, and agent communication.
+
+## Release Version Policy
+
+Determine the next release version from the net public-contract difference
+between the release candidate and the latest version tag already published to
+the remote repository. Only incompatibility with that pushed release changes
+the major version number. Unpublished commits, local or draft version tags, and
+ordinary branch pushes do not establish a new release-version baseline. Do not
+assign a version bump independently to each intermediate commit.
+
+| Net change relative to last published version | Bump |
+|---|---|
+| Internal refactor, tests, documentation, or correction of an unreleased intermediate change | none |
+| Backward-compatible bug fix that restores documented or intended behavior | patch |
+| Backward-compatible addition to inputs, outputs, parameters, or behavior | minor |
+| Incompatible change to a previously published contract | major |
+
+Commit prefixes describe individual changes but do not mechanically determine
+the release version. Select the highest bump required by the final net change.
