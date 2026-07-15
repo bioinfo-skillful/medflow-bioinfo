@@ -5,7 +5,8 @@ category: Workflow
 tags: [workflow, compile, protocol]
 ---
 
-Compile an analysis protocol document into an executable workflow.json.
+Compile an analysis protocol document into an immutable MedFlow
+`workflow.json` schema `2.0`. No other workflow schema is executable.
 
 **Input**: A protocol `.md` file path.
 
@@ -91,6 +92,9 @@ For each semantic step:
    package assignment.
 5. Select and verify the appropriate subcommand from the chosen node's
    `SKILL.md` and entry point. The protocol does not need to name it.
+6. Record step intent independently of the selected node: scientific goal,
+   capability, required semantic inputs, and required semantic outputs. This
+   intent is the invariant used later to audit a replacement node.
 
 ### 4. Determine Edges
 
@@ -225,11 +229,13 @@ When a research question specifies a group column (e.g., `group_col: er_status`)
 - Flag as data flow warning: `"Column 'er_status' exists in GSE20194 (278 samples) but not GSE25066. GSE25066 has 'er_status_ihc:ch1' (502 samples, values={P,N}). Columns represent the same biology — coalescing into unified 'er_status'."`
 - Embed a dataset-oriented extract directive in `file_bindings` so the run agent uses the exact column name per dataset — no guessing:
   ```json
-  "extract_group_col": {
-    "unified_name": "er_status",
-    "per_dataset": {
-      "GSE25066": {"column": "er_status_ihc:ch1", "values": ["P", "N"]},
-      "GSE20194": {"column": "er_status:ch1",    "values": ["P", "N"]}
+  {
+    "extract_group_col": {
+      "unified_name": "er_status",
+      "per_dataset": {
+        "GSE25066": {"column": "er_status_ihc:ch1", "values": ["P", "N"]},
+        "GSE20194": {"column": "er_status:ch1", "values": ["P", "N"]}
+      }
     }
   }
   ```
@@ -275,7 +281,10 @@ not invent an unsupported gene-list CLI parameter.
 
 ### 8. Generate workflow.json
 
-The workflow.json must be **fully bound**: node assignment, immutable source
+The workflow.json must use `schema_version: "2.0"`. Reject any request to emit
+or execute schema `1.0` or `1.1`; the protocol must be recompiled instead.
+
+The workflow.json must be **fully bound**: step intent, node assignment, immutable source
 revision, configuration, file bindings, and external inputs are resolved.
 medflow-run must still read each cloned `SKILL.md` and entry point to verify
 that the pinned implementation has not drifted from its declared contract.
@@ -291,10 +300,12 @@ For each step, produce a `config` block that covers:
   exact commit SHA, and pinned `SKILL.md` SHA-256
 - **Parameter provenance**: protocol/default/inspection/agent-filled source and
   rationale for every value
+- **Step intent**: capability, scientific goal, and required semantic inputs
+  and outputs, independent of the initially selected node
 
-Do not compile a fixed output directory into scientific config. Mark the
-declared output-directory parameter as runtime-bound; `medflow-run` fills it
-with the unique node-run workspace's `outputs/` path.
+Do not compile `outdir`, an attempt ID, a selected workspace, a rerun policy, or
+any other runtime state. `medflow-run` supplies the root of a fresh UUIDv4
+node-attempt workspace as `--outdir`.
 
 For each edge, produce `file_bindings` that tell the run agent exactly how to wire data:
 
@@ -311,13 +322,23 @@ Write to `workflows/<name>.json`:
 
 ```json
 {
-  "schema_version": "1.1",
+  "schema_version": "2.0",
   "name": "<kebab-case-name>",
   "description": "<research question summary>",
   "research_question": "Compare ER+ vs ER- breast cancer tumors to identify differentially expressed genes",
+  "source_protocol": {
+    "path": "protocols/<source-protocol>.md",
+    "sha256": "<protocol-sha256>"
+  },
   "steps": [
     {
       "id": "fetch1",
+      "intent": {
+        "capability": "dataset-acquisition",
+        "scientific_goal": "Acquire the first discovery cohort",
+        "required_inputs": [],
+        "required_outputs": ["expression_matrix", "sample_metadata"]
+      },
       "node": "geo-microarray-processing@1.0.0",
       "source": {
         "url": "https://github.com/bioinfo-skillful/medflow-geo-microarray.git",
@@ -332,12 +353,17 @@ Write to `workflows/<name>.json`:
       },
       "config_provenance": {
         "subcommand": {"source": "agent-filled", "rationale": "Selected node action for protocol fetch intent."},
-        "gse_id": {"source": "protocol", "rationale": "Discovery cohort named by the protocol."},
-        "outdir": {"source": "runtime-workspace", "rationale": "Filled by medflow-run with the selected unique workspace output path."}
+        "gse_id": {"source": "protocol", "rationale": "Discovery cohort named by the protocol."}
       }
     },
     {
       "id": "fetch2",
+      "intent": {
+        "capability": "dataset-acquisition",
+        "scientific_goal": "Acquire the second discovery cohort",
+        "required_inputs": [],
+        "required_outputs": ["expression_matrix", "sample_metadata"]
+      },
       "node": "geo-microarray-processing@1.0.0",
       "source": {
         "url": "https://github.com/bioinfo-skillful/medflow-geo-microarray.git",
@@ -352,12 +378,17 @@ Write to `workflows/<name>.json`:
       },
       "config_provenance": {
         "subcommand": {"source": "agent-filled", "rationale": "Selected node action for protocol fetch intent."},
-        "gse_id": {"source": "protocol", "rationale": "Discovery cohort named by the protocol."},
-        "outdir": {"source": "runtime-workspace", "rationale": "Filled by medflow-run."}
+        "gse_id": {"source": "protocol", "rationale": "Discovery cohort named by the protocol."}
       }
     },
     {
       "id": "merge",
+      "intent": {
+        "capability": "cohort-harmonization",
+        "scientific_goal": "Create one batch-aware discovery matrix",
+        "required_inputs": ["expression_matrix", "sample_metadata"],
+        "required_outputs": ["expression_matrix", "sample_group_map"]
+      },
       "node": "batch-correction@1.0.0",
       "source": {
         "url": "https://github.com/bioinfo-skillful/medflow-batch-correction.git",
@@ -374,12 +405,17 @@ Write to `workflows/<name>.json`:
       "config_provenance": {
         "subcommand": {"source": "agent-filled", "rationale": "Selected contract action for cohort harmonization."},
         "group_col": {"source": "protocol", "rationale": "Protocol comparison field."},
-        "pattern": {"source": "node-default", "rationale": "Pinned SKILL.md declared default."},
-        "outdir": {"source": "runtime-workspace", "rationale": "Filled by medflow-run."}
+        "pattern": {"source": "node-default", "rationale": "Pinned SKILL.md declared default."}
       }
     },
     {
       "id": "deg",
+      "intent": {
+        "capability": "differential-expression",
+        "scientific_goal": "Identify ER-associated differential expression",
+        "required_inputs": ["expression_matrix", "sample_group_map"],
+        "required_outputs": ["differential_expression_table", "significant_gene_list"]
+      },
       "node": "differential-analysis@1.0.0",
       "source": {
         "url": "https://github.com/bioinfo-skillful/medflow-differential-analysis.git",
@@ -398,8 +434,7 @@ Write to `workflows/<name>.json`:
         "subcommand": {"source": "agent-filled", "rationale": "Selected contract action for differential analysis."},
         "method": {"source": "data-inspection", "rationale": "Normalized log-scale microarray expression."},
         "p_set": {"source": "node-default", "rationale": "Pinned SKILL.md declared default."},
-        "logfc_cutoff": {"source": "protocol", "rationale": "Protocol effect-size threshold."},
-        "outdir": {"source": "runtime-workspace", "rationale": "Filled by medflow-run."}
+        "logfc_cutoff": {"source": "protocol", "rationale": "Protocol effect-size threshold."}
       }
     }
   ],
@@ -435,17 +470,24 @@ Write to `workflows/<name>.json`:
     "groups": {"P": "ER-positive", "N": "ER-negative"}
   },
   "data_flow_warnings": [],
-  "created_at": "<ISO timestamp>"
+  "compiled_at": "<ISO timestamp>"
 }
 ```
+
+The compiled workflow is immutable after creation. `medflow-run` copies its
+complete executable content into the first immutable run-local plan snapshot.
+Runtime parameter changes, attempts, selections, replacements, and downstream
+replanning belong only to `workflow-run.json` and run-local full plan snapshots.
 
 ### 9. Run medflow-audit
 
 After writing workflow.json, load and run `medflow-audit` skill.
 - If audit passes: proceed to medflow-run.
-- If audit returns `pass_with_remediation`: run only the generated
-  `workflows/<name>.audited.json`, which must reference labeled remediation
-  bundles and preserve the original compiled workflow SHA-256.
+- If audit returns `pass_with_remediation`: require the generated
+  `workflows/<name>.audited.json` to reference labeled remediation bundles and
+  preserve the original compiled workflow SHA-256. At workflow start,
+  `medflow-run` copies its complete executable content into the immutable
+  initial run-local plan and dispatches only through `active_plan_id`.
 - If audit fails with CRITICAL violations: halt. Fix the issues before execution.
 - If audit returns DEFERRED checks: medflow-run may execute only the
   prerequisite fetch steps named by the audit. Repeat medflow-audit on the

@@ -10,23 +10,26 @@ hardcoded DAG or compiled orchestration program.
    scientific preferences, semantic analysis stages, and quality gates.
 2. **Compile** — `medflow-compile` clones current node contracts from
    `registry.yaml`, maps protocol intent to compatible capabilities, and writes
-   `workflow.json` with immutable node commit SHAs, explicit file bindings, and
-   external inputs.
+   immutable schema-2.0 `workflow.json` with semantic step intent, node commit
+   SHAs, explicit file bindings, and no runtime output directories.
 3. **Audit** — `medflow-audit` checks configuration, data compatibility, sample
    identifiers, node revisions, and runtime dependencies. Deferred checks allow
    only prerequisite fetch steps before the audit is repeated. Safe repairs may
    edit a pinned node checkout or create run-local adapter code, but every
    repair must be labeled, bundled, reproducible, tested, and re-audited.
-4. **Run** — `medflow-run` freshly clones and checks out the compiled node SHAs,
-   executes the audited DAG in isolated per-step environments, and performs an
-   automatic agent review after every node attempt. A failed review triggers a
-   reproducible diagnose-adjust-rerun loop before downstream execution.
+4. **Run** — `medflow-run` creates a workflow registry, immutable full plan
+   snapshots, and one UUIDv4 workspace per node attempt. It reviews each
+   terminal attempt before selecting, rerunning, replacing, halting, or
+   escalating, and traces dependency effects before downstream execution.
+5. **Cleanup** — `medflow-cleanup` runs only when explicitly requested by the
+   user, inventories eligible terminal attempts, and requires confirmation
+   before deletion.
 
 ## Project Structure
 
 ```text
 medflow-bioinfo/
-├── .claude/skills/           # Compile, audit, and run instructions
+├── .claude/skills/           # Compile, audit, run, and cleanup instructions
 ├── protocols/
 │   └── 9-node-breast-cancer.md
 ├── workflows/                # Generated workflow JSON files
@@ -120,44 +123,34 @@ require explicit user confirmation. A remediated audit writes a separate
 `workflows/<name>.audited.json`; the original compiled workflow remains
 unchanged.
 
-## Per-Node Run Review
+## Workflow Runs and Node Attempts
 
-Every node attempt receives a unique workspace ID and is written beneath
-`runs/<workflow>/workspaces/<workspace-id>/` with a labeled
-`agent-review.json`. The agent reviews exit status, logs, declared
-and observed outputs, hashes, schemas, dimensions, quality gates, scientific
-sanity, downstream compatibility, and generated figures. A step is complete
-only when this review passes or passes with documented acceptable warnings; a
-zero exit code is insufficient.
+Each new run uses
+`runs/<workflow-name>/<UTC-timestamp>-<random-suffix>/`. Its
+`workflow-run.json` points to one immutable complete plan snapshot through
+`active_plan_id`. The original `workflow.json` starts the run but is never used
+directly for resumed dispatch. Schema 1.x workflows must be recompiled.
 
-Unexpected but contract-valid results are accepted with evidence, rationale,
-and interpretation limits rather than rerun automatically. When review truly
-fails, the agent makes the smallest safe correction and reruns into
-a new attempt directory. Code edits and adapters go through the labeled audit
-remediation workflow and re-audit. The agent asks the user only when a proposed
-change affects scientific meaning or the public node contract, or when the
-failure cannot be resolved within the sandbox. All attempts and corrections
-remain in the final report.
+Every node attempt receives an unordered UUIDv4 workspace beneath
+`workspaces/<step-id>/<attempt-uuid>/`. A designed multi-command exploration is
+one attempt. Once the node exits, its factual status and review are recorded,
+the workspace becomes immutable, and the agent records `select`, `rerun`,
+`replace`, `halt`, or `escalate`. A zero exit code does not imply selection.
 
-The agent persists all workspace events in `workspace-registry.jsonl` and holds
-the explicit winning workspace for each logical step in an atomic
-`workspace-selections/<step-id>.json` record, aggregated into
-`selected-workspaces.json` for reporting. Downstream nodes never infer or
-consume the latest attempt. Each workspace contains its own fresh pinned node
-checkout. Node environments may be shared by compatible pinned revisions and
-environment-specification hashes through a separate `env_id`; outputs and
-review artifacts remain isolated per workspace.
+Pinned node checkouts live outside `--outdir` under
+`sources/<attempt-uuid>/node/`; workflow-owned attempt locks live under
+`attempt-locks/`. The node alone owns the workspace `run.json`.
 
-Selections are atomic and revisioned. A later attempt can supersede an accepted
-workspace only after its own passing review and a recorded supersession event;
-a failed later replicate instead opens a reproducibility finding. Shared
-environments become immutable after first use, so dependency repairs receive a
-new environment ID rather than altering prior execution state.
+Every changed parameter or binding is written to a new complete candidate plan
+and receives a focused audit before that plan becomes active. Replacement nodes are selected
+only from the registry and audited against immutable step intent. Replacement
+or downstream binding changes create a new complete plan snapshot rather than
+a delta-only patch. Selecting a new upstream attempt marks dependent attempts
+stale until the agent rebinds, reruns, replaces, halts, or escalates them.
 
-Direct argument, path, environment, configuration, or binding corrections are
-recorded in `run-adjustment.json` with exact old/new values and provenance.
-Rendered figure-review evidence is preserved and hashed. Corrections that
-generate code, transform data, rewrite binding logic, or edit a node must use
+Scientific-intent, contract, result-semantic, or downstream-interpretation
+changes require user confirmation. Contract-preserving code edits and adapters
+continue to use
 the full audit-remediation bundle instead.
 
 ## Integration Constraints

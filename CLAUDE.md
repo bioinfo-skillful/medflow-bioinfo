@@ -9,10 +9,13 @@ metadata rather than a compiled orchestration program.
 
 ```text
 medflow-bioinfo/
+├── .agents/skills/
+│   └── medflow-cleanup/SKILL.md # Codex cleanup mirror
 ├── .claude/skills/
 │   ├── medflow-compile.md     # Intent-first protocol → workflow.json
-│   ├── medflow-audit.md       # Pre-execution contract and data audit
-│   └── medflow-run.md         # Audited execution with per-attempt agent review
+│   ├── medflow-audit.md       # Initial and revised-plan audit
+│   ├── medflow-run.md         # Attempt workspaces and active plans
+│   └── medflow-cleanup.md     # Explicit user-invoked cleanup only
 ├── protocols/
 │   └── 9-node-breast-cancer.md
 ├── workflows/                # Generated workflow JSON files
@@ -26,13 +29,20 @@ medflow-bioinfo/
 
 | Skill | Input | Responsibility |
 |-------|-------|----------------|
-| `medflow-compile` | Intent-first protocol Markdown | Clone node contracts from the registry, infer compatible capabilities and settings, and generate an execution-ready workflow |
-| `medflow-audit` | Compiled workflow and available runtime data | Verify configuration, data compatibility, identifiers, node revisions, and environments; safely repair code/input adapters through labeled reproducibility bundles; return `pass`, `pass_with_remediation`, `fail`, or `deferred` |
-| `medflow-run` | Audited workflow JSON | Give every node attempt a unique workspace ID, explicitly select accepted workspaces, share only compatible environments, agent-review each attempt, and safely rerun failures before downstream execution |
+| `medflow-compile` | Intent-first protocol Markdown | Generate immutable schema-2.0 workflows with semantic step intent, pinned node revisions, and no runtime output paths |
+| `medflow-audit` | Initial or proposed full plan | Verify initial plans, changed parameters, replacement nodes, dependencies, and complete revised downstream subgraphs |
+| `medflow-run` | Schema-2.0 workflow or workflow-run registry | Create UUIDv4 attempt workspaces, dispatch only the active full plan, and record post-terminal selection, rerun, replacement, halt, or escalation |
+| `medflow-cleanup` | Explicit user request and terminal workflow-run root | Dry-run and confirm eligible attempt deletion while protecting active and selected workspaces |
 
 `medflow-audit` is mandatory before unrestricted execution. A deferred audit
 permits only the prerequisite fetch steps named by the audit; repeat the audit
 before downstream analysis.
+
+Only workflow schema `2.0` is executable. A new workflow run creates one
+timestamp-plus-random run root, one `workflow-run.json`, immutable complete plan
+snapshots, and one UUIDv4 workspace per node attempt. After a run starts, agents
+must dispatch only from `active_plan_id`, never directly from the original
+`workflow.json`. Every terminal attempt workspace is immutable.
 
 The audit may edit a pinned node checkout or write deterministic adapter/helper
 code when scientific meaning and public contracts are preserved. Every repair
@@ -76,8 +86,6 @@ checksum. Never substitute a different release silently.
 ## Language
 
 Use English for artifacts, commit messages, and agent communication.
-
-## Release Version Policy
 
 ## Successful-Run Reproducibility Code Bundle
 

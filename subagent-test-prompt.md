@@ -20,6 +20,8 @@ scientific intent as written.
 - Record the node URL, version, default branch, commit SHA, `SKILL.md` SHA-256,
   node-selection rationale, and every filled parameter's value, source, and
   rationale in the compiled workflow.
+- Emit only `workflow.json` schema `2.0`. Record semantic step intent and
+  required semantic inputs/outputs. Do not compile runtime output paths.
 - Do not invent parameters or defaults. Ask only when an unresolved choice
   changes scientific interpretation; fill mechanical contract-compatible
   choices autonomously and record the reasoning.
@@ -44,47 +46,54 @@ meaning, model target, output contract, or public node contract.
 
 ## Node execution workspaces
 
-Give every individual node dispatch, including retries, a new globally unique
-`workspace_id`. Create its isolated workspace beneath:
+Start the run at:
 
 ```text
-runs/<workflow>/workspaces/<workspace_id>/
+runs/<workflow-name>/<UTC-timestamp>-<random-suffix>/
 ```
 
-Keep the fresh pinned node checkout, exact command, inputs/configuration hashes,
-logs, outputs, review evidence, and adjustments inside that workspace. Link a
-retry to its parent workspace ID and append all lifecycle events to
-`workspace-registry.jsonl`.
+Create `workflow-run.json`, a workflow lock, and one immutable full schema-2.0
+plan snapshot. Once the run exists, always dispatch from
+`active_plan_id`, never directly from the original `workflow.json`.
+
+Give every node attempt an unordered UUIDv4 and create its workspace beneath:
+
+```text
+workspaces/<step-id>/<attempt-uuid>/
+```
+
+Clone the pinned node into `sources/<attempt-uuid>/node/`, create the
+workflow-owned lock at `attempt-locks/<attempt-uuid>.lock`, and pass only the
+workspace root as `--outdir`. The node alone owns the workspace `run.json`. A node's
+declared multi-command exploration is one attempt. When the node exits, record
+`success`, `partial_success`, `no_result`, `failure`, or `interrupted`, remove
+the lock after durable finalization, and never modify that workspace again.
 
 Environments may be shared only when the node URL, pinned commit, environment
 specification hash, platform, and remediation state are identical. Identify a
 shared environment with `env_id` and treat it as immutable after first use.
 
-## Mandatory agent review and retry
+## Mandatory agent review and post-terminal decision
 
-After every node dispatch, inspect the logs, exit status, recursive file
+After every terminal node attempt, inspect the logs, exit status, recursive file
 inventory, hashes, schemas, dimensions, sample/feature counts, quality gates,
 scientific sanity, downstream compatibility, and every generated figure. Write
-a labeled `MEDFLOW_NODE_RUN_AGENT_REVIEW` record in that workspace with one
-decision:
+a labeled workflow-level `MEDFLOW_NODE_RUN_AGENT_REVIEW` record without
+modifying the attempt workspace. Then record exactly one disposition in
+`workflow-run.json`: `select`, `rerun`, `replace`, `halt`, or `escalate`.
 
-- `pass`: accept the workspace;
-- `pass_with_warnings`: accept unexpected but contract-valid results, recording
-  evidence, rationale, and interpretation limits;
-- `retry`: diagnose, make the smallest reproducible contract-preserving
-  correction, and rerun in a new workspace;
-- `blocked`: stop when no new safe corrective action remains or user authority
-  is required.
+Do not treat warnings as automatic failures or exit code zero as automatic
+selection. Every changed parameter or binding requires a new complete candidate
+plan and focused audit before activation. Route generated
+code, data transformations, binding-logic rewrites, or node edits through audit
+remediation and re-audit.
 
-Do not treat warnings as automatic failures or exit code zero as an automatic
-pass. Continue the diagnose-adjust-rerun loop while a new safe correction is
-available. Route generated code, data transformations, binding-logic rewrites,
-or node edits through audit remediation and re-audit.
-
-Persist the accepted choice atomically in
-`workspace-selections/<step-id>.json`. Downstream steps may consume only that
-selected workspace and recorded selection revision. Never infer the accepted
-workspace from timestamps, directory ordering, or the largest attempt number.
+For replacement, select a candidate only from `registry.yaml` and audit it
+against immutable step intent. Node, edge, binding, or downstream-node changes
+create a complete new plan snapshot with `based_on` equal to the active plan;
+never execute delta-only revisions. Mark attempts that consumed a superseded
+upstream selection stale and audit every affected downstream action. Never
+infer attempt order or selection from timestamps, directory order, or UUIDs.
 
 ## External resources
 
@@ -100,9 +109,9 @@ Report:
 - interpreted scientific intent, workflow DAG, assumptions, and filled choices;
 - every node URL, version, default branch, commit and contract hash;
 - audit status, deferred checks, warnings, critical findings, and remediations;
-- every workspace ID, step, attempt ordinal, parent workspace ID, environment
-  ID, command, review decision, adjustments, runtime, and warnings;
-- selected workspace and selection revision for every completed logical step;
+- workflow-run ID, active plan history, every step and attempt UUID, environment
+  ID, command, terminal status, disposition, adjustments, runtime, and warnings;
+- selected and stale workspaces for every affected logical step;
 - every file produced, with its producing workspace and checksum;
 - figure-review findings, excluded samples, failed or accepted quality gates,
   and accepted-warning rationales;
@@ -123,3 +132,5 @@ Report:
 - Never create symlinks.
 - Never silently substitute a node revision, dataset, external database release,
   method, contrast, group orientation, or accepted workspace.
+- Never execute schema 1.x, reuse a terminal attempt workspace, invoke cleanup
+  automatically, or clear a stale lock.

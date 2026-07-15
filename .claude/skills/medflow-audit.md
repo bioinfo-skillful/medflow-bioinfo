@@ -5,8 +5,10 @@ category: Workflow
 tags: [workflow, audit, medflow]
 ---
 
-Audit a compiled workflow after compilation and again after prerequisite fetch
-steps when checks depend on runtime data.
+Audit a schema-2.0 compiled workflow after compilation, its initial full plan
+snapshot before execution, and proposed full plan snapshots created for reruns,
+replacement nodes, or downstream replanning. Schema `1.0` and `1.1` workflows
+are not executable and must be recompiled.
 
 The audit rejects demonstrated incompatibility, not naming differences or
 dependencies with a documented, verified installation fallback.
@@ -15,6 +17,26 @@ The audit may edit a pinned node checkout or write adapter/helper code when a
 finding can be repaired without silently changing scientific meaning. Every
 repair must be labeled, reproducible from the pinned inputs and node commit,
 tested, and re-audited before execution continues.
+
+## Audit Modes
+
+- **INITIAL_PLAN**: verify the complete first plan snapshot against the
+  immutable compiled workflow before unrestricted dispatch.
+- **RERUN_PARAMETERS**: compare proposed effective parameters with the original
+  protocol, compiled workflow, preceding relevant attempt, pinned node
+  contract, upstream semantics, and downstream compatibility.
+- **NODE_REPLACEMENT**: verify that a registry replacement satisfies the
+  original step intent, method suitability, semantic inputs, required result
+  semantics, parameter mapping, and environment requirements.
+- **DOWNSTREAM_REPLAN**: trace a changed upstream selection or replacement
+  through every dependent edge and verify the complete proposed downstream
+  subgraph before its full plan snapshot becomes active.
+- **RUNTIME_FINDING**: evaluate a terminal attempt review or interrupted
+  attempt before the run agent records its disposition.
+
+When `workflow-run.json` exists, verify that a candidate plan's `based_on`
+value names the current `active_plan_id`. Audit the complete candidate
+snapshot; never infer an effective plan by replaying deltas.
 
 ## Severity Model
 
@@ -50,7 +72,7 @@ protocol, registry, and node `SKILL.md` documentation updates.
 Never overwrite or modify raw/source input files. Write derived inputs beneath:
 
 ```text
-runs/<workflow>/audit-remediation/<finding-id>/outputs/
+<run-root>/audit-remediation/<candidate-plan-id>/<finding-id>/outputs/
 ```
 
 Do not push, commit, or publish a node patch unless the user separately asks.
@@ -73,7 +95,7 @@ new finding-ID-labeled output; it must never edit the file in place.
 
 ## Labeled Reproducibility Bundle
 
-Store every repair beneath:
+Before a workflow run exists, store an initial-audit repair beneath:
 
 ```text
 workflows/remediations/<workflow>/<finding-id>/
@@ -87,6 +109,16 @@ workflows/remediations/<workflow>/<finding-id>/
 ├── tests/
 └── logs/
 ```
+
+During a workflow run, store the bundle beneath the current run instead:
+
+```text
+<run-root>/audit-remediation/<candidate-plan-id>/<finding-id>/bundle/
+```
+
+Never share or overwrite a remediation bundle across workflow runs or candidate
+plans. The runtime bundle and its derived outputs use the same candidate-plan
+and finding identity.
 
 `remediation.yaml` must label the repair with:
 
@@ -161,9 +193,12 @@ After writing a repair:
 4. Re-run every audit check affected by the finding.
 5. For a node patch, start from a clean clone of the pinned commit, apply
    `node.patch`, and prove the resulting diff and code hashes match the bundle.
-6. Write `workflows/<name>.audited.json` containing the original compiled
-   workflow SHA-256 plus references and checksums for all accepted remediation
-   bundles. Do not overwrite the original compiled workflow.
+6. For initial audit before a workflow run exists, write
+   `workflows/<name>.audited.json` containing the original compiled workflow
+   SHA-256 plus references and checksums for all accepted remediation bundles.
+   For runtime audit, write those references into the complete run-local
+   candidate plan snapshot instead. Do not overwrite the original compiled
+   workflow or bypass `active_plan_id`.
 
 Only a successfully reproduced and re-audited repair may change a finding from
 CRITICAL to remediated.
@@ -171,21 +206,91 @@ CRITICAL to remediated.
 ## Runtime Agent-Review Findings
 
 `medflow-run` performs an automatic agent review after every node attempt. When
-that review returns `retry` because adapter/helper code or a node edit is
-needed, treat the review as a new audit finding and apply the remediation rules
-above. Preserve the failed node-run workspace and its `agent-review.json`;
-include its workspace ID, path, and SHA-256 in `remediation.yaml` as the
-triggering evidence.
+that review returns `rerun_recommended` or `replacement_recommended` because
+adapter/helper code or a node edit is needed, treat the workflow-level
+`<run-root>/reviews/<attempt-uuid>.json` as a new audit finding and apply the
+remediation rules above. Preserve the terminal attempt workspace unchanged;
+include its attempt UUID, path, recorded hashes, and review path/hash in
+`remediation.yaml` as the triggering evidence.
 
 After remediation, re-audit the affected node, its input/output contract, and
 all downstream assumptions invalidated by the change. Return an updated
-audited workflow with the remediation bundle reference. The run agent then
-reruns the node in a new unique workspace, links it to the failed parent
-workspace in the append-only registry, and reviews it again. Routine
+full plan snapshot with the remediation bundle reference. The run agent then
+reruns the node in a new UUIDv4 workspace and reviews it again. Routine
 agent review and contract-preserving retries do not require user approval;
 scientific-meaning or public-contract changes still do.
 
+The attempt under review is already terminal and immutable. Audit must never
+repair it in place. Any correction runs in a new attempt workspace. A
+replacement or downstream node/edge change must be materialized as a new
+complete plan snapshot before dispatch.
+
 ## Checks
+
+### 0. Workflow and Attempt State Audit
+
+- Require the compiled workflow and every plan snapshot to use schema `2.0`.
+- For a new run, verify the initial full plan equals the compiled workflow's
+  executable content and records its path and SHA-256.
+- For a resumed run, load `workflow-run.json.active_plan_id` and reject any
+  instruction that dispatches directly from the original `workflow.json`.
+- Verify plan IDs and attempt IDs are UUIDv4 values. Verify workflow-run IDs use
+  a UTC timestamp plus random suffix; chronology comes from timestamps.
+- Verify workflow and attempt locks. Audit may inspect an active run but must
+  not mark it terminal, clear locks, or authorize cleanup.
+- Verify every consumed upstream workspace is terminal, selected, not stale,
+  and named explicitly in the candidate bindings. Its recorded plan ID, node
+  source, effective parameters, and bindings must match the candidate active
+  plan.
+- Verify every terminal workspace remains immutable.
+
+### 0a. Parameter Rerun Audit
+
+For `RERUN_PARAMETERS`, record complete old and proposed effective parameter
+maps and a structured difference. Approve autonomous change only when every
+value is accepted by the pinned node contract, the original scientific intent
+remains unchanged, input and result semantics remain compatible, and affected
+dependencies are handled in the candidate plan. Require every changed argument,
+path, config value, parameter, or file binding to appear in a new complete
+candidate plan snapshot; reject registry-only or adjustment-only overrides.
+
+Apply the authoritative meaning-changing predicate below.
+
+### 0b. Replacement and Cascading Dependency Audit
+
+For `NODE_REPLACEMENT` or `DOWNSTREAM_REPLAN`, compose all applicable audit
+modes in one audit of the same complete candidate plan. A replacement that also
+changes parameters or downstream structure therefore includes
+`RERUN_PARAMETERS` and/or `DOWNSTREAM_REPLAN` checks.
+
+1. Resolve the replacement only from `registry.yaml`, clone it fresh, and pin
+   its repository, version, default branch, commit, and contract hash.
+2. Compare it with the immutable step `intent`: capability, scientific goal,
+   required semantic inputs, and required semantic outputs.
+3. Verify method suitability, parameter mapping, environment viability, output
+   equivalence or an explicit reproducible adapter, and every outgoing edge.
+4. Require every revised-plan activation to atomically clear selections for
+   each changed step and its affected downstream subgraph, then mark prior
+   attempts stale while preserving their workspaces unchanged.
+5. Audit each affected downstream action: rebind, rerun, replace, halt, or
+   escalate.
+6. Permit an independent branch to continue only when it has no data,
+   quality-gate, or scientific dependency on the changed path.
+7. Require a new complete plan snapshot with UUID `plan_id` and `based_on`.
+   Reject delta-only execution instructions.
+
+Apply the authoritative meaning-changing predicate below.
+
+### 0c. Meaning-Changing Change Predicate
+
+Across every audit mode, a change is meaning-changing when it alters
+specifications, approved scientific design or declared workflow intent,
+scientific intent or objectives, public contracts, required result semantics,
+protected assumptions, or downstream interpretation. A contract-compatible
+implementation substitution or mechanical binding/edge rewiring that preserves
+those meanings is not a design change. Return `escalate` and require recorded
+user confirmation before activating a meaning-changing candidate plan. No
+mode-specific clause may narrow this predicate.
 
 ### 1. Config Key Audit
 
@@ -292,7 +397,17 @@ For every declared environment:
 
 ## Output
 
-Emit one NDJSON result line.
+Every candidate-plan result must identify the audit mode, candidate full-plan ID and
+`based_on` plan ID, original protocol and workflow hashes, active and candidate
+plan hashes, affected steps and attempts, selected and stale workspaces,
+parameter differences, node replacements, dependency traversal, compatibility
+evidence, verdict, and whether user confirmation is required. Only `pass` or a
+fully verified `pass_with_remediation` may activate a candidate plan or
+dispatch changed parameters.
+
+Emit one NDJSON result line. The compact initial-audit examples below do not
+have a workflow-run plan context. Runtime candidate-plan results include a
+`plan_context` object containing every field listed above.
 
 Pass:
 
@@ -303,7 +418,7 @@ Pass:
 Pass with reproducible remediation:
 
 ```json
-{"level":"result","status":"pass_with_remediation","checks":6,"warnings":[],"deferred":[],"critical":[],"remediated":[{"finding_id":"MF-AUD-001","type":"INPUT_ADAPTER","bundle":"workflows/remediations/<workflow>/MF-AUD-001/remediation.yaml","bundle_sha256":"<sha256>","verification":"pass"}],"audited_workflow":"workflows/<name>.audited.json"}
+{"level":"result","status":"pass_with_remediation","audit_mode":["RERUN_PARAMETERS","NODE_REPLACEMENT","DOWNSTREAM_REPLAN"],"checks":6,"warnings":[],"deferred":[],"critical":[],"plan_context":{"candidate_plan_id":"<uuid>","based_on":"<uuid>","protocol_sha256":"<sha256>","workflow_sha256":"<sha256>","active_plan_sha256":"<sha256>","candidate_plan_sha256":"<sha256>","affected_steps":["deg","enrichment"],"affected_attempts":["<uuid>"],"selected_workspaces":[],"stale_workspaces":["<attempt-path>"],"parameter_differences":[],"node_replacements":[{"step":"deg","from":"<node-a>","to":"<node-b>"}],"dependency_traversal":["deg","enrichment"],"compatibility_evidence":["<evidence-sha256>"]},"remediated":[{"finding_id":"MF-AUD-001","type":"INPUT_ADAPTER","bundle":"<run-root>/audit-remediation/<candidate-plan-id>/MF-AUD-001/bundle/remediation.yaml","bundle_sha256":"<sha256>","verification":"pass"}],"confirmation_required":false}
 ```
 
 Deferred:
@@ -318,13 +433,22 @@ Failure:
 {"level":"result","status":"fail","checks":6,"warnings":[],"deferred":[],"critical":[{"check":1,"step":"fetch1","key":"rename","msg":"Unsupported required configuration."}]}
 ```
 
+User decision required:
+
+```json
+{"level":"result","status":"escalate","audit_mode":["NODE_REPLACEMENT","DOWNSTREAM_REPLAN"],"plan_context":{"candidate_plan_id":"<uuid>","based_on":"<uuid>","protocol_sha256":"<sha256>","workflow_sha256":"<sha256>","active_plan_sha256":"<sha256>","candidate_plan_sha256":"<sha256>","affected_steps":["deg","enrichment"],"affected_attempts":["<uuid>"],"selected_workspaces":["<attempt-path>"],"stale_workspaces":[],"parameter_differences":[],"node_replacements":[{"step":"deg","from":"<node-a>","to":"<node-b>"}],"dependency_traversal":["deg","enrichment"],"compatibility_evidence":["<evidence-sha256>"]},"confirmation_required":true,"reason":"Replacement changes required result semantics."}
+```
+
 Execution policy:
 
 - `fail`: execute nothing.
 - `deferred`: execute only prerequisite fetch steps identified by the audit,
   then repeat the audit.
 - `pass`: proceed with the remaining DAG.
-- `pass_with_remediation`: execute only
-  `workflows/<name>.audited.json`. medflow-run must verify every remediation
-  label and checksum, clone the pinned base commit, apply recorded patches or
-  run recorded adapters exactly, and reject any unrecorded edit.
+- `pass_with_remediation`: embed verified remediation references in the
+  complete initial or run-local candidate plan, activate that plan, and dispatch
+  only through `active_plan_id`. medflow-run must verify every remediation label
+  and checksum, clone the pinned base commit, apply recorded patches or run
+  recorded adapters exactly, and reject any unrecorded edit.
+- `escalate`: do not activate the candidate plan or dispatch the changed
+  attempt until the user confirms the scientific or contract change.
