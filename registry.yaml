@@ -1,9 +1,10 @@
 schema: registry@1.0
 
 # Machine-readable node registry — git clone URLs + versions.
-# Used by `ire sync` and the run-workflow skill for git clone.
-# Commit pinning removed — agents clone the latest main branch.
-# See manifest.yaml for agent-oriented semantic metadata.
+# Used by MedFlow compile/run skills to clone node contracts and implementations.
+# Versions are not commit pins — compilation resolves the current remote default
+# branch and persists its commit SHA for audit and execution.
+# Node capabilities and parameters are read from each cloned node's SKILL.md.
 
 nodes:
   geo-microarray-processing:
@@ -45,5 +46,17 @@ nodes:
   go-kegg-enrichment:
     source: git
     url: https://github.com/bioinfo-skillful/medflow-go-kegg-enrichment.git
+    versions:
+      - version: "1.0.0"
+
+  gsea-enrichment:
+    source: git
+    url: https://github.com/bioinfo-skillful/medflow-gsea-enrichment.git
+    versions:
+      - version: "1.0.0"
+
+  external-validation:
+    source: git
+    url: https://github.com/bioinfo-skillful/medflow-external-validation.git
     versions:
       - version: "1.0.0"
