@@ -29,14 +29,14 @@ hardcoded DAG or compiled orchestration program.
 
 ```text
 medflow-bioinfo/
-├── .claude/skills/           # Compile, audit, run, and cleanup instructions
+├── .agents/skills/           # Compile, audit, run, and cleanup instructions
 ├── protocols/
 │   └── 9-node-breast-cancer.md
 ├── workflows/                # Generated workflow JSON files
 ├── nodes/                    # Fresh registry clones; gitignored
 ├── runs/                     # Runtime environments and outputs; gitignored
 ├── registry.yaml             # Node Git URLs and declared versions
-├── CLAUDE.md                 # Agent-facing project instructions
+├── AGENTS.md                 # Agent-facing project instructions
 └── subagent-test-prompt.md   # Clean-sandbox integration-test prompt
 ```
 

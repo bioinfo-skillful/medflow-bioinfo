@@ -10,12 +10,10 @@ metadata rather than a compiled orchestration program.
 ```text
 medflow-bioinfo/
 ├── .agents/skills/
-│   └── medflow-cleanup/SKILL.md # Codex cleanup mirror
-├── .claude/skills/
-│   ├── medflow-compile.md     # Intent-first protocol → workflow.json
-│   ├── medflow-audit.md       # Initial and revised-plan audit
-│   ├── medflow-run.md         # Attempt workspaces and active plans
-│   └── medflow-cleanup.md     # Explicit user-invoked cleanup only
+│   ├── medflow-compile/SKILL.md # Intent-first protocol → workflow.json
+│   ├── medflow-audit/SKILL.md   # Initial and revised-plan audit
+│   ├── medflow-run/SKILL.md     # Attempt workspaces and active plans
+│   └── medflow-cleanup/SKILL.md # Explicit user-invoked cleanup only
 ├── protocols/
 │   └── 9-node-breast-cancer.md
 ├── workflows/                # Generated workflow JSON files
@@ -132,7 +130,7 @@ The node release version must remain consistent across all authoritative version
 locations, including:
 
 - `SKILL.md` `version:`
-- `CLAUDE.md` `Current:`
+- `AGENTS.md` `Current:`
 - runtime version constants
 - package metadata
 - registry entries and release tags, when applicable
