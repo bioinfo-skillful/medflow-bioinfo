@@ -343,6 +343,19 @@ For every external reference resource, produce an `external_inputs` binding
 with enough provenance and integrity information for medflow-run to acquire or
 verify the exact resource without guessing.
 
+Do not skip an analysis solely because an authoritative reference is available
+in a preserved source format that differs from the selected node's runtime
+input format. Emit the immutable source as an `external_inputs` entry and emit
+a deterministic transformation whose implementation is
+`audit_generated_remediation_required`. The transformation must name the
+source sheet/range or records, output schema, identifier namespace, expected
+set count, membership-count checks, duplicate policy, and checksum
+requirements. When the protocol explicitly delegates an otherwise unnamed
+reference, resolve it autonomously only if one authoritative resource uniquely
+matches the requested method, organism, taxonomy, and set count; label its
+provenance `agent-resolved`. Leave genuinely ambiguous scientific choices for
+audit escalation.
+
 Write to `workflows/<name>.json`:
 
 ```json

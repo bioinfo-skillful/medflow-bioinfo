@@ -71,6 +71,24 @@ then perform one of these remediations:
 - **ENVIRONMENT_FIX**: amend only the isolated runtime environment or install a
   documented dependency fallback.
 
+An `INPUT_ADAPTER` may autonomously convert an authoritative scientific
+reference from its preserved source format into a node's declared runtime
+format. Examples include extracting metagene/cell-type pairs from a workbook,
+converting a GMT-like table to a two-column gene-set database, or normalizing
+headers and delimiters. This is permitted only when the reference identity,
+biological scope, identifier namespace, and complete membership are preserved.
+Record the source sheet/range, extraction rules, expected set count, per-set and
+total membership counts, duplicate handling, and acceptance checks. Preserve
+and checksum the source asset; never edit it in place.
+
+When a protocol explicitly delegates resolution of an unnamed reference, the
+agent may select an authoritative published resource without another user
+prompt if exactly one candidate matches the requested method, organism,
+feature taxonomy, and set count. Record the citation, release or source table,
+selection rationale, retrieval provenance, and checksum as `agent-resolved`.
+If multiple scientifically distinct candidates remain plausible, or the choice
+would change the requested taxonomy or method, escalate instead of guessing.
+
 The audit must not automatically make a change that alters the biological
 contrast, statistical method, normalization, identifier semantics, imputation,
 feature-selection meaning, model target, output schema, or public node
