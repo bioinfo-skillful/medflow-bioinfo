@@ -27,7 +27,7 @@ medflow-bioinfo/
 
 | Skill | Input | Responsibility |
 |-------|-------|----------------|
-| `medflow-compile` | Intent-first protocol Markdown | Generate immutable schema-2.0 workflows with semantic step intent, pinned node revisions, and no runtime output paths |
+| `medflow-compile` | Intent-first protocol Markdown | Synchronize registry versions to current fully tagged default-branch releases, then generate immutable schema-2.0 workflows with semantic step intent, pinned node revisions, and no runtime output paths |
 | `medflow-audit` | Initial or proposed full plan | Verify initial plans, changed parameters, replacement nodes, dependencies, and complete revised downstream subgraphs |
 | `medflow-run` | Schema-2.0 workflow or workflow-run registry | Create UUIDv4 attempt workspaces, dispatch only the active full plan, and record post-terminal selection, rerun, replacement, halt, or escalation |
 | `medflow-cleanup` | Explicit user request and terminal workflow-run root | Dry-run and confirm eligible attempt deletion while protecting active and selected workspaces |
@@ -63,6 +63,10 @@ verified against its entry point. There is no central node manifest.
 ## Node Acquisition and Provenance
 
 - Obtain nodes only by cloning their `registry.yaml` URLs.
+- Every compile begins by fresh-cloning every registry URL and updating only
+  version entries whose default-branch HEAD, contract version, and canonical
+  tag agree. Untagged or mismatched HEADs remain unavailable and are never
+  treated as the newest release.
 - Clone each required node fresh for compilation and execution; do not reuse a
   previous `nodes/` checkout.
 - Do not create symlinks or acquire node packages from directories outside the

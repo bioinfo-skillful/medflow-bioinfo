@@ -17,6 +17,50 @@ component because audit and run use it as `<workflow>` in run-local paths.
 
 ## Steps
 
+### 0. Synchronize Registry Versions to Current Releases
+
+Before parsing or matching the protocol, synchronize `registry.yaml` against
+the current fully released default-branch HEAD of every registered node. This
+step is mandatory for every compile invocation; do not ask whether to refresh
+nodes and do not compile from a previously observed registry version.
+
+1. Generate the invocation's collision-resistant `compile_id`, hash the
+   pre-sync `registry.yaml`, and read only its node names and clone URLs.
+2. Generate a unique opaque `candidate_id` per registry entry and clone every
+   URL fresh into
+   `runs/compile/<compile-id>/candidates/<candidate-id>/node`. These are the
+   same current-invocation candidates used by node discovery in step 2; never
+   clone into or reuse `nodes/`.
+3. For each candidate, resolve the remote default branch and HEAD, require
+   exactly one semantic `SKILL.md` version, fetch tags, and require canonical
+   `v<version>` or `<version>` to dereference to that exact HEAD. If both tag
+   forms exist, they must dereference to the same commit.
+4. Compare versions using semantic-version precedence. When the verified HEAD
+   version is newer than the registry entry, replace that entry's `versions`
+   list with the verified version before compilation. Never change the node
+   name or URL automatically. When the values are equal, make no edit. A
+   verified HEAD version older than the registry version is critical version
+   regression and must not downgrade the registry.
+5. If HEAD is untagged, its contract version is malformed, the canonical tag
+   is missing, or the tag does not equal HEAD, leave the registry entry
+   unchanged and mark that candidate unavailable with exact observed evidence.
+   Never call an untagged commit "newest", move an existing tag, select a
+   feature branch, or fall back silently to the older registry release. Halt
+   later if protocol matching requires that unavailable node.
+6. If `registry.yaml` already has unstaged local edits that overlap a version
+   update, preserve them and halt for conflict resolution rather than
+   overwriting them. Registry synchronization may edit the working tree, but
+   it must never commit or push without a separate explicit user request.
+7. Write `runs/compile/<compile-id>/registry-sync.json` with the pre/post
+   registry hashes, inspection time, candidate IDs, old/new versions, default
+   branches, HEADs, contract hashes, canonical tags and commits, edits made,
+   unavailable nodes, and retry evidence. Record a no-change result too.
+
+"Newest" therefore means the semantically newest version whose contract,
+canonical tag, and default-branch HEAD are synchronized. Network freshness
+alone, a newer commit date, or a higher untagged `SKILL.md` version is not a
+release.
+
 ### 1. Parse the Protocol Document
 
 Read the protocol `.md` file. Extract:
@@ -40,8 +84,9 @@ use or expect a central node manifest. Discover capabilities, subcommands,
 inputs, outputs, parameters, defaults, file layouts, and exceptions by reading
 each freshly cloned node's `SKILL.md` at the pinned commit.
 
-Generate one collision-resistant `compile_id` per invocation and a unique
-opaque `candidate_id` per candidate. Clone fresh from its registry URL:
+Use the collision-resistant `compile_id`, unique candidate IDs, and fresh
+registry clones created by step 0. Retry a failed acquisition only with a new
+candidate ID and another fresh clone from the same registry URL:
 
 ```text
 git clone <url> runs/compile/<compile-id>/candidates/<candidate-id>/node
@@ -59,11 +104,11 @@ with a new candidate ID and fresh clone.
 
 #### Release Identity Gate
 
-Before adding a node to the candidate catalog:
+Before adding a step-0 candidate to the candidate catalog:
 
 1. Resolve the default branch, HEAD commit, and contract hash.
-2. Require exactly one semantic `SKILL.md` frontmatter version equal to a
-   registry version; never default to the first entry or `1.0.0`.
+2. Require exactly one semantic `SKILL.md` frontmatter version equal to the
+   synchronized registry version; never default to the first entry or `1.0.0`.
 3. Fetch tags and require canonical `v<version>` or `<version>`; if both exist,
    they must dereference to the same commit.
 4. Require the dereferenced tag commit to equal default-branch HEAD, not merely
@@ -545,6 +590,8 @@ After writing workflow.json, load and run `medflow-audit` skill.
 
 ### 10. Report
 
+- Registry synchronization result, pre/post hashes, version changes, and
+  unavailable nodes
 - Workflow name, step count, edge count
 - Node assignments per step with versions
 - Config decisions: method chosen, cutoffs applied, group column selected

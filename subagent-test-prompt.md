@@ -8,6 +8,11 @@ scientific intent as written.
 
 - Use `registry.yaml` only to discover node names, declared versions, and Git
   clone URLs. There is no central node manifest.
+- Before protocol matching, fresh-clone every registry URL, verify the current
+  default-branch HEAD against its `SKILL.md` version and canonical tag, and
+  update only registry version entries for newer fully synchronized releases.
+  Record the pre/post registry hashes and all unavailable nodes. Never select
+  an untagged or mismatched HEAD as newest.
 - Clone every candidate or required node fresh from its registry URL. Never
   reuse an existing node checkout or historical compiled workflow.
 - For each clone, resolve the remote default branch and exact commit SHA. Read

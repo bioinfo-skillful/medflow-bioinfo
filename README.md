@@ -8,10 +8,11 @@ hardcoded DAG or compiled orchestration program.
 
 1. **Protocol** — describe the research question, datasets, comparisons,
    scientific preferences, semantic analysis stages, and quality gates.
-2. **Compile** — `medflow-compile` clones current node contracts from
-   `registry.yaml`, maps protocol intent to compatible capabilities, and writes
-   immutable schema-2.0 `workflow.json` with semantic step intent, node commit
-   SHAs, explicit file bindings, and no runtime output directories.
+2. **Compile** — `medflow-compile` fresh-clones every registry node, updates
+   registry versions only for fully tagged releases at default-branch HEAD,
+   maps protocol intent to compatible capabilities, and writes immutable
+   schema-2.0 `workflow.json` with semantic step intent, node commit SHAs,
+   explicit file bindings, and no runtime output directories.
 3. **Audit** — `medflow-audit` checks configuration, data compatibility, sample
    identifiers, node revisions, and runtime dependencies. Deferred checks allow
    only prerequisite fetch steps before the audit is repeated. Safe repairs may
@@ -91,7 +92,9 @@ nine-node protocol.
 ## Registry and Reproducibility
 
 - `registry.yaml` is the authoritative source for node Git URLs and declared
-  versions.
+  versions. Every compile synchronizes version entries to newer releases only
+  when the cloned default-branch HEAD, contract version, and canonical tag are
+  identical; it records both changed and unavailable entries.
 - Every freshly cloned node's pinned `SKILL.md` is the authoritative source for
   capabilities, parameters, defaults, inputs, outputs, discovery behavior, and
   conditional results. The agent builds the needed catalog at compile time and
