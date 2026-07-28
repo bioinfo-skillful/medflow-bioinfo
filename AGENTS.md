@@ -29,7 +29,7 @@ medflow-bioinfo/
 |-------|-------|----------------|
 | `medflow-compile` | Intent-first protocol Markdown | Synchronize registry versions to current fully tagged default-branch releases, then generate immutable schema-2.0 workflows with semantic step intent, pinned node revisions, and no runtime output paths |
 | `medflow-audit` | Initial or proposed full plan | Verify initial plans, changed parameters, replacement nodes, dependencies, and complete revised downstream subgraphs |
-| `medflow-run` | Schema-2.0 workflow or workflow-run registry | Create UUIDv4 attempt workspaces, dispatch only the active full plan, and record post-terminal selection, rerun, replacement, halt, or escalation |
+| `medflow-run` | Schema-2.0 workflow or workflow-run registry | Create UUIDv4 attempt workspaces, dispatch only the active full plan, record post-terminal decisions, and publish a verified `collected/` directory from explicit selections |
 | `medflow-cleanup` | Explicit user request and terminal workflow-run root | Dry-run and confirm eligible attempt deletion while protecting active and selected workspaces |
 
 `medflow-audit` is mandatory before unrestricted execution. A deferred audit
@@ -41,6 +41,14 @@ timestamp-plus-random run root, one `workflow-run.json`, immutable complete plan
 snapshots, and one UUIDv4 workspace per node attempt. After a run starts, agents
 must dispatch only from `active_plan_id`, never directly from the original
 `workflow.json`. Every terminal attempt workspace is immutable.
+
+Before a workflow can be reported terminal, `medflow-run` must materialize a
+verified user-facing `collected/` directory from the active plan's explicit
+selected attempts. The collection uses ordinary copies, never links or moves;
+preserves per-step paths and reproducibility code bundles; records hashes,
+warnings, absent conditional outputs, reviews, and selection provenance in
+`collection.json`; and is referenced by the durable terminal
+`workflow-run.json`. Node workspaces remain authoritative and immutable.
 
 The audit may edit a pinned node checkout or write deterministic adapter/helper
 code when scientific meaning and public contracts are preserved. Every repair

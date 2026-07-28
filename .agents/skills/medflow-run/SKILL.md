@@ -182,6 +182,9 @@ runs/<workflow-name>/<workflow-run-id>/
 └── envs/
 ```
 
+Terminalization additionally publishes `<run-root>/collected/` using the
+verified layout in Step 6.
+
 The workflow registry has one authoritative active plan pointer:
 
 ```json
@@ -554,18 +557,124 @@ execution, and include the remediation label/finding ID in the step report.
 - If no file_bindings: read upstream SKILL.md outputs vs downstream inputs, match by semantic_type
 - Pass resolved file paths (not directories) for `param_type: file`
 
-### 6. Report
+### 6. Collect Selected Results
+
+Before assigning a terminal workflow status, create a user-facing
+`<run-root>/collected/` directory. This is a mandatory completion gate, not an
+analysis node and not a new DAG step. It materializes the final results chosen
+by the agent after all attempt reviews and dispositions are complete.
+
+Collection must use only:
+
+- the current `workflow-run.json.active_plan_id` and its complete plan snapshot;
+- the explicit `selected_attempts` mapping in `workflow-run.json`;
+- declared outputs and observed output manifests from those selected terminal
+  workspaces; and
+- the selected attempts' terminal reviews.
+
+Never infer a selected attempt from timestamps, directory order, UUID values,
+or successful exit codes. Never collect from stale, superseded, failed,
+unselected, or still-running attempts.
+
+Create the collection in a run-local staging directory such as
+`<run-root>/.collected-staging-<uuid>/`, validate it, and atomically rename it
+to `collected/`. Use ordinary file copies. Never use symbolic links, junctions,
+hard links, or moves, and never alter a terminal attempt workspace. Once the
+terminal workflow registry is durable, `collected/` is immutable.
+
+Use this layout:
+
+```text
+collected/
+├── README.md
+├── collection.json
+├── tables/<step-id>/...
+├── figures/<step-id>/...
+├── models/<step-id>/...
+├── networks/<step-id>/...
+├── reports/<step-id>/...
+├── other/<step-id>/...
+├── reproducibility/<step-id>/code/...
+└── provenance/
+    ├── active-plan.json
+    ├── selected-attempts.json
+    └── reviews/<attempt-uuid>.json
+```
+
+Classify an artifact by its declared semantic type first. Use its declared or
+observed path only as a fallback: tabular data under `tables`, plots under
+`figures`, serialized models and portable model bundles under `models`, graph
+artifacts under `networks`, human-readable analytical reports under `reports`,
+and required successful-run `code/` bundles under `reproducibility`. Put a
+declared scientific output that cannot be classified safely under
+`other/<step-id>/` and explain the classification in `collection.json`.
+Retain the artifact's original relative path below the category and step ID so
+sidecars remain adjacent and filenames cannot collide across steps.
+
+Do not collect node source clones, environments, caches, downloaded package
+archives, attempt locks, raw external inputs, transient logs, audit working
+files, or undeclared intermediates unless the active plan or terminal review
+explicitly identifies one as a final scientific result. Record excluded
+conditional outputs and the reason they were absent; do not create placeholder
+data files.
+
+`README.md` must provide a concise index of final tables, figures, models,
+networks, and reports by workflow step. It must identify the workflow run,
+active plan, selected attempt for each step, completion status, important
+accepted warnings, partial results, missing conditional outputs, and where the
+complete original workspaces remain.
+
+`collection.json` is the authoritative machine-readable collection manifest.
+It must record:
+
+- workflow name, workflow-run ID, active-plan ID, creation time, and collection
+  schema version;
+- every planned step and its selected attempt, factual terminal status,
+  disposition, source workspace, review path, and collection status;
+- every copied file's semantic type, source path, collected path, byte size,
+  and SHA-256;
+- excluded or absent declared outputs with explicit reasons;
+- all accepted warnings and output mismatches surfaced by terminal reviews;
+- active-plan and selected-attempt provenance hashes; and
+- total copied file count, byte count, validation result, and symlink count.
+
+Validation must recursively enumerate the staging collection using long-path
+safe traversal, reject any symlink or path escaping the run root, verify every
+copy byte-for-byte by SHA-256 and size, confirm that every selected step has a
+collection record, and confirm that every successful selected node contributes
+its required reproducibility code bundle. A collection is invalid when a
+declared unconditional output is missing, an unexpected duplicate destination
+exists, a copied hash differs, or provenance does not match the active plan and
+registry.
+
+Do not report the workflow as complete when collection validation fails. Keep
+the workflow lock, record the collection failure outside attempt workspaces,
+repair or escalate it, and retry with a new staging UUID. After successful
+validation, acquire `.medflow-mutation.lock`, atomically add a
+`result_collection` record to `workflow-run.json` containing the path,
+collection-manifest SHA-256, file count, byte count, active-plan ID, and
+creation time. In the same durable registry transition, assign the workflow's
+terminal status. Remove `.medflow-running.lock` only afterward.
+
+When a terminal workflow has no selected scientific outputs, still create
+`collected/README.md` and `collected/collection.json`; state why the collection
+is empty and preserve all step and disposition provenance.
+
+### 7. Report
 
 For each step, report every attempt UUID, factual terminal status, disposition,
 effective parameter differences, node replacement, active plan revision,
 selected workspace, stale dependents, environment identity, outputs, warnings,
 and review evidence.
 
-When no attempt is running, atomically write the workflow's terminal or paused
-status and remove the workflow lock only after the registry is durable. Report
-the run root, active plan ID, selected workspaces, blocked or stale paths, key
-results, and all user-confirmation decisions. Never call `medflow-cleanup`
-automatically, including after success, failure, interruption, or replacement.
+When no attempt is running and the result collection has passed validation,
+atomically write the workflow's terminal status and collection record, then
+remove the workflow lock only after the registry is durable. Report the run
+root, clickable `collected/` path, active plan ID, selected workspaces, blocked
+or stale paths, key results, all output mismatches, and all user-confirmation
+decisions. A paused non-terminal run may retain its workflow lock and must not
+publish a final collection. Never call `medflow-cleanup` automatically,
+including after success, failure, interruption, or replacement.
 
 ## File Resolution Protocol
 
@@ -575,6 +684,11 @@ automatically, including after success, failure, interruption, or replacement.
 3. Respect `file_layout` declarations in SKILL.md (nesting, sidecar)
 4. **Never symlink, move, or copy files** — breaks sidecar assumptions
 5. If ambiguous: report options and ask user
+
+The no-copy rule above applies to input resolution and execution. Step 6 is
+the sole copy exception: it runs only after terminal attempt selection, uses
+ordinary copies, preserves relative sidecar layout, and verifies every copy by
+hash.
 
 ## Anti-Patterns
 
@@ -586,6 +700,10 @@ automatically, including after success, failure, interruption, or replacement.
   `workflow.json`; load `workflow-run.json.active_plan_id`.
 - **Do NOT** reuse or modify a terminal attempt workspace.
 - **Do NOT** infer order or selection from UUIDs, timestamps, or directory names.
+- **Do NOT** construct `collected/` from every successful workspace; use only
+  explicit selections from the active plan and workflow registry.
+- **Do NOT** report terminal completion before `collected/collection.json`
+  passes completeness, provenance, hash, and no-symlink validation.
 - **Do NOT** invoke cleanup automatically or clear a stale lock.
 - **Do NOT** use default method without checking data type compatibility
 - **Do NOT** skip reading the node's entry point before dispatching
