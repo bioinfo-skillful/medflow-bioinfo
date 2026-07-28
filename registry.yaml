@@ -23,7 +23,7 @@ nodes:
     source: git
     url: https://github.com/bioinfo-skillful/medflow-differential-analysis.git
     versions:
-      - version: "2.1.0"
+      - version: "2.2.0"
 
   diagnostic-model:
     source: git
@@ -65,7 +65,7 @@ nodes:
     source: git
     url: https://github.com/bioinfo-skillful/medflow-immune-infiltration.git
     versions:
-      - version: "1.0.0"
+      - version: "1.1.0"
 
   regulatory-network:
     source: git
