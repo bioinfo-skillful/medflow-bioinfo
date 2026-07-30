@@ -79,7 +79,15 @@ headers and delimiters. This is permitted only when the reference identity,
 biological scope, identifier namespace, and complete membership are preserved.
 Record the source sheet/range, extraction rules, expected set count, per-set and
 total membership counts, duplicate handling, and acceptance checks. Preserve
-and checksum the source asset; never edit it in place.
+and checksum an external or user-supplied source asset; never edit it in place.
+
+For a reference resource bundled inside a node pinned to an exact commit, do not
+require or compare an expected resource checksum. A missing or different
+workspace checksum for that bundled resource must not produce a finding.
+Validate the pinned node identity and commit, repository-relative resource path,
+expected format, and required scientific structure instead. An observed
+workspace checksum may be recorded as non-blocking provenance, but it is not an
+acceptance condition.
 
 When a protocol explicitly delegates resolution of an unnamed reference, the
 agent may select an authoritative published resource without another user

@@ -78,9 +78,15 @@ nodes. Before dispatching the consuming step:
 
 - acquire the declared resource into its run-local destination, or verify the
   declared local file if it was supplied by the user;
-- verify its expected format and checksum when provided;
-- record the source URL, database/release, retrieval time, and observed
+- for downloaded, user-supplied, or independently versioned external resources,
+  verify the expected format and checksum when provided;
+- for a resource bundled inside a node pinned to an exact commit, verify the
+  pinned node identity and commit, repository-relative resource path, expected
+  format, and required scientific structure; do not verify an expected resource
   checksum;
+- record the source URL, database/release, retrieval time, and observed
+  checksum when one is collected; a bundled resource's observed checksum is
+  non-blocking provenance only;
 - stop for user action when access requires unrecorded credentials, license
   acceptance, or an unresolved resource choice;
 - never search outside the sandbox or substitute a different release silently.

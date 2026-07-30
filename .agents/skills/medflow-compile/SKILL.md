@@ -330,9 +330,15 @@ For each required node input with no valid upstream producer:
 
 - Determine whether it is an external reference resource, such as a GMT gene-set
   database, rather than an analysis artifact that the workflow should produce.
-- If it is external, add an `external_inputs` entry containing the downstream
-  parameter, source URL or acquisition instruction, database/release, checksum
-  when available, expected format, and run-local destination.
+- If the resource is bundled inside a node pinned to an exact commit, add an
+  `external_inputs` entry with `source_kind: node_bundled`, the pinned node
+  identity and commit, repository-relative resource path, downstream parameter,
+  expected format and scientific structure, and run-local destination. Do not
+  require, propagate, or enforce an expected checksum for that bundled resource.
+- For downloaded, user-supplied, or independently versioned external resources,
+  add an `external_inputs` entry containing the downstream parameter, source URL
+  or acquisition instruction, database/release, checksum when available,
+  expected format, and run-local destination.
 - Do not invent an upstream edge or silently search arbitrary local directories.
 - If licensing, authentication, or an unresolved scientific choice prevents
   deterministic acquisition, stop and request the missing decision before
