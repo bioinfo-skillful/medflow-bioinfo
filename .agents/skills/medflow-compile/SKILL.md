@@ -333,8 +333,10 @@ For each required node input with no valid upstream producer:
 - If the resource is bundled inside a node pinned to an exact commit, add an
   `external_inputs` entry with `source_kind: node_bundled`, the pinned node
   identity and commit, repository-relative resource path, downstream parameter,
-  expected format and scientific structure, and run-local destination. Do not
-  require, propagate, or enforce an expected checksum for that bundled resource.
+  expected format and required scientific structure, and run-local destination.
+  Do not require, propagate, or enforce an expected checksum for that bundled
+  resource. An observed workspace checksum may be recorded as non-blocking
+  provenance only.
 - For downloaded, user-supplied, or independently versioned external resources,
   add an `external_inputs` entry containing the downstream parameter, source URL
   or acquisition instruction, database/release, checksum when available,

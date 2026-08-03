@@ -84,9 +84,12 @@ nodes. Before dispatching the consuming step:
   pinned node identity and commit, repository-relative resource path, expected
   format, and required scientific structure; do not verify an expected resource
   checksum;
-- record the source URL, database/release, retrieval time, and observed
-  checksum when one is collected; a bundled resource's observed checksum is
-  non-blocking provenance only;
+- for downloaded, user-supplied, or independently versioned external resources,
+  record the source URL or acquisition instruction, database/release, retrieval
+  time, and observed checksum when one is collected;
+- for a node-bundled resource, record its pinned node identity and commit,
+  repository-relative resource path, and an observed checksum when one is
+  collected; that checksum is non-blocking provenance only;
 - stop for user action when access requires unrecorded credentials, license
   acceptance, or an unresolved resource choice;
 - never search outside the sandbox or substitute a different release silently.
