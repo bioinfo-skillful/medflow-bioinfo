@@ -356,6 +356,8 @@ upstream candidate table, declare the identifier columns, preserve candidate
 order or document the chosen order, and write a run-local filtered matrix. Do
 not invent an unsupported gene-list CLI parameter.
 
+If a protocol contains both a training cohort and an independent validation cohort followed by model training and validation, use an explicit file_bindings transformation before any training-cohort feature selection to strictly intersect the original matrices by exact gene identifier and pass the aligned matrices with identical deterministic gene order downstream, without gene ID mapping or canonicalization, zero-filling, imputation, aggregation, or expression-value changes; do not add this transformation when no independent validation cohort exists.
+
 ### 8. Generate workflow.json
 
 The workflow.json must use `schema_version: "2.0"`. Reject any request to emit
