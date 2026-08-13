@@ -164,6 +164,22 @@ For each semantic step:
 6. Record step intent independently of the selected node: scientific goal,
    capability, required semantic inputs, and required semantic outputs. This
    intent is the invariant used later to audit a replacement node.
+7. Enforce multi-command intent coverage. Compare the semantic outputs required
+   by the protocol step with the inspected outputs of every compatible
+   subcommand. If no single subcommand covers the complete intent, but an
+   ordered set of subcommands from the same pinned node does, expand the
+   semantic step into that ordered subgraph. Give every generated step its own
+   intent, subcommand configuration and provenance, and bind intermediate
+   artifacts using the exact inspected input/output declarations. For example,
+   when a protocol requests model training plus internal checking and the node
+   exposes `train` followed by `evaluate`, compile `train -> evaluate` and bind
+   the training predictions to the evaluation input. Describe this evaluation
+   as training-cohort exploratory assessment, never independent validation.
+   Do not add evaluation when the protocol requests training only. Do not add a
+   visualization subcommand merely because it exists; add it only when the
+   protocol requests the corresponding declared explanatory result or figure.
+   This expansion does not change existing warning, blocking, or user-decision
+   rules.
 
 ### 4. Determine Edges
 
